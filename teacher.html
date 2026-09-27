@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f766e">
+<title>منصة السهم — المعلم</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+
+<section id="vLogin" class="login hide">
+  <div class="box">
+    <div class="logo">🧑‍🏫</div>
+    <h1>دخول المعلم</h1>
+    <p class="lead">الحساب نفسه الذي تدخل به إلى الدفتر الجانبي</p>
+    <form id="loginForm" class="card pad">
+      <div id="loginErr" class="err hide" role="alert"></div>
+      <label class="field"><span>البريد الإلكتروني</span><input class="input" id="email" type="email" autocomplete="username" dir="ltr" required></label>
+      <label class="field"><span>كلمة السر</span><input class="input" id="pass" type="password" autocomplete="current-password" dir="ltr" required></label>
+      <button class="btn primary block lg" id="loginBtn" type="submit">دخول</button>
+    </form>
+    <p class="tiny" style="text-align:center;margin-top:14px"><a href="index.html">صفحة الطلبة</a></p>
+  </div>
+</section>
+
+<div id="app" class="hide">
+  <header class="topbar"><div class="row">
+    <div class="grow"><h1 id="pgTitle">الرئيسية</h1><div class="sub" id="pgSub"></div></div>
+    <a class="iconbtn" href="book.html" title="الدفتر الجانبي" aria-label="الدفتر الجانبي">📗</a>
+    <button class="iconbtn" id="themeBtn" title="الوضع الليلي" aria-label="تبديل الوضع">🌓</button>
+    <button class="iconbtn" id="outBtn" title="خروج" aria-label="خروج">🚪</button>
+  </div></header>
+  <main>
+    <section id="v-home"></section>
+    <section id="v-bank" class="hide"></section>
+    <section id="v-exams" class="hide"></section>
+    <section id="v-results" class="hide"></section>
+    <section id="v-students" class="hide"></section>
+  </main>
+  <nav class="tabbar" aria-label="التنقل">
+    <button data-v="home"><span class="ic">🏠</span>الرئيسية</button>
+    <button data-v="bank"><span class="ic">🗂️</span>الأسئلة</button>
+    <button data-v="exams"><span class="ic">📝</span>الاختبارات</button>
+    <button data-v="results"><span class="ic">📊</span>النتائج</button>
+    <button data-v="students"><span class="ic">🪪</span>الطلبة</button>
+  </nav>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="assets/config.js"></script>
+<script src="assets/common.js"></script>
+<script src="assets/teacher.js"></script>
+</body>
+</html>

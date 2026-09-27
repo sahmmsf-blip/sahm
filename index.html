@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f766e">
+<title>منصة السهم — الطالب</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+
+<!-- الدخول -->
+<section id="vLogin" class="login hide">
+  <div class="box">
+    <div class="logo">🎯</div>
+    <h1>منصة السهم للاختبارات</h1>
+    <p class="lead">ادخل برقمك الوطني وتاريخ ميلادك</p>
+    <form id="loginForm" class="card pad" autocomplete="off">
+      <div id="loginErr" class="err hide" role="alert"></div>
+      <label class="field"><span>الرقم الوطني</span>
+        <input class="input mono" id="nid" inputmode="numeric" maxlength="14" required placeholder="مثال: 2008123456" dir="ltr" style="text-align:right"></label>
+      <div class="field"><span>تاريخ الميلاد</span>
+        <div class="dob">
+          <select class="input" id="dobD" aria-label="اليوم" required></select>
+          <select class="input" id="dobM" aria-label="الشهر" required></select>
+          <select class="input" id="dobY" aria-label="السنة" required></select>
+        </div>
+      </div>
+      <button class="btn primary block lg" id="loginBtn" type="submit">دخول</button>
+    </form>
+    <p class="tiny" style="text-align:center;margin-top:14px">المعلم؟ <a href="teacher.html">دخول المعلم</a></p>
+  </div>
+</section>
+
+<!-- الرئيسية -->
+<section id="vHome" class="hide">
+  <header class="topbar"><div class="row">
+    <div class="grow"><h1 id="hName">—</h1><div class="sub" id="hSec"></div></div>
+    <button class="iconbtn" id="refreshBtn" title="تحديث" aria-label="تحديث">↻</button>
+    <button class="iconbtn" id="themeBtn" title="الوضع الليلي" aria-label="تبديل الوضع">🌓</button>
+    <button class="iconbtn" id="logoutBtn" title="خروج" aria-label="خروج">🚪</button>
+  </div></header>
+  <main style="padding-bottom:32px">
+    <div id="homeBody"></div>
+  </main>
+</section>
+
+<!-- الاختبار -->
+<section id="vExam" class="hide noselect">
+  <div class="exam-top"><div class="row">
+    <div class="grow"><div style="font-weight:700" id="xTitle"></div>
+      <div class="tiny"><span id="xProg"></span> · <span id="xSaved">—</span></div></div>
+    <div class="timer mono" id="xTimer">--:--</div>
+  </div>
+  <div class="bar" style="margin-top:8px;height:5px"><i id="xBar" style="width:0"></i></div></div>
+  <main style="padding-bottom:40px;max-width:760px">
+    <div class="card qcard" id="xCard"></div>
+    <div class="row sp" style="margin-top:14px">
+      <button class="btn ghost" id="xPrev">→ السابق</button>
+      <button class="btn ghost sm" id="xFlag">⚑ علّم للمراجعة</button>
+      <button class="btn primary" id="xNext">التالي ←</button>
+    </div>
+    <div class="card pad" style="margin-top:16px">
+      <div class="row sp" style="margin-bottom:10px"><b style="font-size:14px">خريطة الأسئلة</b>
+        <span class="tiny">■ مُجاب · ● معلَّم</span></div>
+      <div class="qnav" id="xNav"></div>
+      <button class="btn primary block lg" id="xSubmit" style="margin-top:16px">تسليم الإجابات</button>
+    </div>
+  </main>
+</section>
+
+<!-- النتيجة -->
+<section id="vResult" class="hide">
+  <header class="topbar"><div class="row"><div class="grow"><h1 id="rTitle">النتيجة</h1></div></div></header>
+  <main style="max-width:680px;padding-bottom:32px"><div id="rBody"></div>
+    <button class="btn primary block lg" id="rBack" style="margin-top:16px">العودة إلى اختباراتي</button></main>
+</section>
+
+<div id="fsLock" class="lock hide"><div>
+  <div style="font-size:40px">⛶</div>
+  <h2 style="margin:8px 0">عُد إلى وضع ملء الشاشة</h2>
+  <p class="muted">هذا الاختبار يتطلّب البقاء في ملء الشاشة، وكل خروج يُسجَّل للمعلم.</p>
+  <button class="btn primary lg" id="fsBack">متابعة الاختبار</button>
+</div></div>
+
+<script src="assets/config.js"></script>
+<script src="assets/common.js"></script>
+<script src="assets/student.js"></script>
+</body>
+</html>
