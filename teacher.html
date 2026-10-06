@@ -1,38 +1,83 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="ar" dir="rtl" data-skin="white">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0f766e">
-<title>منصة السهم — المعلم</title>
+<meta name="theme-color" content="#16325a">
+<title>بوابة المعلّم — منصة السهم العلمي للاختبارات الذكية وتقويم الأداء</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Noto+Kufi+Arabic:wght@600;700;800&family=Amiri:wght@400;700&display=swap" rel="stylesheet">
+<link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/brand.css">
 <link rel="stylesheet" href="assets/app.css">
+<link rel="stylesheet" href="assets/teacher-bridge.css">
 </head>
 <body>
 
-<section id="vLogin" class="login hide">
-  <div class="box">
-    <div class="logo">🧑‍🏫</div>
-    <h1>دخول المعلم</h1>
-    <p class="lead">الحساب نفسه الذي تدخل به إلى الدفتر الجانبي</p>
-    <form id="loginForm" class="card pad">
-      <div id="loginErr" class="err hide" role="alert"></div>
-      <label class="field"><span>البريد الإلكتروني</span><input class="input" id="email" type="email" autocomplete="username" dir="ltr" required></label>
-      <label class="field"><span>كلمة السر</span><input class="input" id="pass" type="password" autocomplete="current-password" dir="ltr" required></label>
-      <button class="btn primary block lg" id="loginBtn" type="submit">دخول</button>
-    </form>
-    <p class="tiny" style="text-align:center;margin-top:14px"><a href="index.html">صفحة الطلبة</a></p>
-  </div>
-</section>
+<div id="vLogin" class="hide">
+  <header class="site-nav"><div class="container">
+    <a class="brand" href="index.html"><span data-logo></span><span class="wm"><b>السهم العلمي</b><span>للاختبارات الذكية وتقويم الأداء</span></span></a>
+    <div class="end">
+      <button class="iconbtn" id="skinBtnL" type="button" title="المظهر" aria-label="تغيير المظهر"><i data-ic="palette"></i></button>
+      <a class="btn outline sm" href="index.html"><i data-ic="user" class="sm"></i>صفحة الطلبة</a>
+    </div>
+  </div></header>
+  <section class="hero"><div class="container">
+    <div>
+      <span class="eyebrow">بوابة المعلّم</span>
+      <h1>لوحة تحكّم <em>المعلّم</em><br>في مكان واحد</h1>
+      <p class="lead">بنك الأسئلة على النتاجات، والاختبارات بالسحب الذكي، والنتائج اللحظية، وسجلات العلامات الجانبية الجاهزة للطباعة.</p>
+      <div class="trust">
+        <div><i data-ic="id"></i>دخول بالرقم الوطني</div>
+        <div><i data-ic="lock"></i>كلمة سر مشفّرة</div>
+        <div><i data-ic="shield"></i>كل معلّم يرى بياناته فقط</div>
+      </div>
+    </div>
+    <div class="portal" id="portal">
+      <div class="seg"><a href="index.html"><i data-ic="user" class="sm"></i>طالب</a><button class="on" type="button"><i data-ic="key" class="sm"></i>معلّم</button></div>
+      <div id="loginErr" class="err hide" role="alert" style="margin-bottom:14px"></div>
+
+      <form id="tStep1" autocomplete="off" novalidate>
+        <div class="p-head"><div class="badge"><i data-ic="key"></i></div><div><h2>دخول المعلّم</h2><div class="tiny">رقمك الوطني أولًا، ثم كلمة السر</div></div></div>
+        <label class="field"><span>الرقم الوطني</span>
+          <div class="nid-wrap" id="tNidWrap"><input class="input mono" id="tNid" inputmode="numeric" maxlength="10" placeholder="٠٠٠٠٠٠٠٠٠٠" dir="ltr">
+            <span class="count" id="tNidCount">0/10</span><span class="tick"><i data-ic="checkc"></i></span></div></label>
+        <button class="btn primary block lg" id="tNext" type="submit">متابعة <i data-ic="left"></i></button>
+        <p class="tiny" style="text-align:center">أول مرة؟ <a href="#" id="toEmail">ادخل بالبريد الإلكتروني</a> ثم اربط رقمك الوطني.</p>
+      </form>
+
+      <form id="tStep2" class="hide" autocomplete="on" novalidate>
+        <div class="row" style="background:var(--surface-2);border-radius:14px;padding:12px 14px">
+          <span class="avatar" id="tAv" style="width:44px;height:44px;font-size:18px">س</span>
+          <div class="grow"><b id="tHello" style="font-family:var(--f-disp)">أهلًا</b><div class="tiny" id="tSchool"></div></div>
+          <button class="btn ghost sm" type="button" id="tBack">تغيير</button>
+        </div>
+        <input type="text" class="sr" id="tUser" autocomplete="username" tabindex="-1" aria-hidden="true">
+        <label class="field"><span>كلمة السر</span>
+          <div style="position:relative"><input class="input" id="tPass" type="password" autocomplete="current-password" dir="ltr" style="padding-inline-start:46px">
+            <button class="iconbtn" type="button" id="tEye" style="position:absolute;inset-inline-start:5px;top:5px" aria-label="إظهار كلمة السر"><i data-ic="eye"></i></button></div></label>
+        <button class="btn primary block lg" id="tGo" type="submit">دخول إلى اللوحة <i data-ic="left"></i></button>
+        <div class="step-dots"><i class="on"></i><i class="on"></i></div>
+      </form>
+
+      <form id="loginForm" class="hide">
+        <div class="p-head"><div class="badge"><i data-ic="mail"></i></div><div><h2>الدخول بالبريد</h2><div class="tiny">الحساب نفسه الذي تدخل به إلى الدفتر الجانبي</div></div></div>
+        <label class="field"><span>البريد الإلكتروني</span><input class="input" id="email" type="email" autocomplete="username" dir="ltr" required></label>
+        <label class="field"><span>كلمة السر</span><input class="input" id="pass" type="password" autocomplete="current-password" dir="ltr" required></label>
+        <button class="btn primary block lg" id="loginBtn" type="submit">دخول</button>
+        <p class="tiny" style="text-align:center"><a href="#" id="toNid">الدخول بالرقم الوطني</a></p>
+      </form>
+    </div>
+  </div></section>
+</div>
 
 <div id="app" class="hide">
   <header class="topbar"><div class="row">
     <div class="grow"><h1 id="pgTitle">الرئيسية</h1><div class="sub" id="pgSub"></div></div>
-    <a class="iconbtn" href="book.html" title="الدفتر الجانبي" aria-label="الدفتر الجانبي">📗</a>
-    <button class="iconbtn" id="themeBtn" title="الوضع الليلي" aria-label="تبديل الوضع">🌓</button>
-    <button class="iconbtn" id="outBtn" title="خروج" aria-label="خروج">🚪</button>
+    <a class="iconbtn" href="book.html" title="الدفتر الجانبي" aria-label="الدفتر الجانبي"><i data-ic="book"></i></a>
+    <button class="iconbtn" id="themeBtn" title="المظهر" aria-label="تغيير المظهر"><i data-ic="palette"></i></button>
+    <button class="iconbtn" id="outBtn" title="خروج" aria-label="خروج"><i data-ic="logout"></i></button>
   </div></header>
   <main>
     <section id="v-home"></section>
@@ -40,18 +85,21 @@
     <section id="v-exams" class="hide"></section>
     <section id="v-results" class="hide"></section>
     <section id="v-students" class="hide"></section>
+    <section id="v-records" class="hide"></section>
   </main>
-  <nav class="tabbar" aria-label="التنقل">
+  <nav class="tabbar six" aria-label="التنقل">
     <button data-v="home"><span class="ic">🏠</span>الرئيسية</button>
     <button data-v="bank"><span class="ic">🗂️</span>الأسئلة</button>
     <button data-v="exams"><span class="ic">📝</span>الاختبارات</button>
     <button data-v="results"><span class="ic">📊</span>النتائج</button>
+    <button data-v="records"><span class="ic">📒</span>السجلات</button>
     <button data-v="students"><span class="ic">🪪</span>الطلبة</button>
   </nav>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="assets/config.js"></script>
+<script src="assets/icons.js"></script>
 <script src="assets/common.js"></script>
 <script src="assets/teacher.js"></script>
 </body>

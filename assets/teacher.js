@@ -23,22 +23,94 @@
   }
 
   // ================= الدخول =================
+  U.initSkin("teacher", "white");
+  const LG = { nid: "" };
+  function lErr(msg) {
+    const e = $("loginErr");
+    if (!msg) { e.classList.add("hide"); return; }
+    e.innerHTML = ic("alert", "sm") + "<span>" + esc(msg) + "</span>"; e.classList.remove("hide");
+    $("portal").classList.remove("shake"); void $("portal").offsetWidth; $("portal").classList.add("shake");
+  }
+  function lShow(which) {
+    ["tStep1", "tStep2", "loginForm"].forEach((k) => $(k).classList.toggle("hide", k !== which)); lErr("");
+    setTimeout(() => { const f = { tStep1: "tNid", tStep2: "tPass", loginForm: "email" }[which]; if ($(f)) $(f).focus(); }, 60);
+  }
+  function nidUi() { const v = $("tNid").value; $("tNidCount").textContent = v.length + "/10"; $("tNidWrap").classList.toggle("full", v.length === 10); }
+  $("tNid").addEventListener("input", (e) => { const v = digits(e.target.value).replace(/\D/g, "").slice(0, 10); if (v !== e.target.value) e.target.value = v; nidUi(); });
+  try { const r = localStorage.getItem("sahm_t_nid"); if (r) { $("tNid").value = r; nidUi(); } } catch (e) {}
+  $("toEmail").onclick = (e) => { e.preventDefault(); lShow("loginForm"); };
+  $("toNid").onclick = (e) => { e.preventDefault(); lShow("tStep1"); };
+  $("tBack").onclick = () => lShow("tStep1");
+  $("tEye").onclick = () => { const p = $("tPass"); p.type = p.type === "password" ? "text" : "password"; $("tEye").innerHTML = ic(p.type === "password" ? "eye" : "eyeoff"); };
+  $("skinBtnL").onclick = U.skinPicker;
+
+  $("tStep1").addEventListener("submit", async (e) => {
+    e.preventDefault(); lErr("");
+    const nid = $("tNid").value;
+    if (nid.length !== 10) return lErr("الرقم الوطني يتكوّن من ١٠ أرقام.");
+    const b = $("tNext"); U.spin(b, true, "جارٍ التعرّف…");
+    try {
+      const r = await U.rpcFetch("teacher_hello", { p_nid: nid });
+      if (!r.ok) return lErr(r.code === "NOT_FOUND" ? r.error + " ادخل بالبريد مرة واحدة، ثم اربط رقمك الوطني من داخل اللوحة." : r.error);
+      LG.nid = nid; $("tUser").value = nid;
+      $("tHello").textContent = "أهلًا، الأستاذ " + U.firstName(r.name);
+      $("tSchool").textContent = r.school || r.name || "";
+      $("tAv").textContent = U.firstName(r.name).slice(0, 1);
+      lShow("tStep2");
+    } catch (ex) { lErr(ex.message); } finally { U.spin(b, false); }
+  });
+  $("tStep2").addEventListener("submit", async (e) => {
+    e.preventDefault(); lErr("");
+    if (!$("tPass").value) return lErr("اكتب كلمة السر.");
+    const b = $("tGo"); U.spin(b, true, "جارٍ الدخول…");
+    try {
+      const res = await fetch(C.SUPABASE_URL + "/functions/v1/teacher-login", {
+        method: "POST", headers: { apikey: C.SUPABASE_KEY, "Content-Type": "application/json" },
+        body: JSON.stringify({ nid: LG.nid, password: $("tPass").value })
+      });
+      const r = await res.json().catch(() => ({ ok: false, error: "تعذّر الاتصال بالخادم." }));
+      if (!r.ok) { $("tPass").select(); return lErr(r.error || "تعذّر الدخول."); }
+      const { error } = await sb.auth.setSession({ access_token: r.access_token, refresh_token: r.refresh_token });
+      if (error) return lErr("تعذّر بدء الجلسة: " + error.message);
+      try { localStorage.setItem("sahm_t_nid", LG.nid); } catch (x) {}
+      boot();
+    } catch (ex) { lErr("تعذّر الاتصال بالخادم. تحقّق من الإنترنت."); } finally { U.spin(b, false); }
+  });
   $("loginForm").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const b = $("loginBtn"); b.disabled = true; b.textContent = "جارٍ الدخول…"; $("loginErr").classList.add("hide");
+    e.preventDefault(); lErr("");
+    const b = $("loginBtn"); U.spin(b, true, "جارٍ الدخول…");
     const r = await sb.auth.signInWithPassword({ email: $("email").value.trim(), password: $("pass").value });
-    b.disabled = false; b.textContent = "دخول";
-    if (r.error) { $("loginErr").textContent = "تعذّر الدخول — تأكد من البريد وكلمة السر."; $("loginErr").classList.remove("hide"); return; }
+    U.spin(b, false);
+    if (r.error) return lErr("تعذّر الدخول — تأكد من البريد وكلمة السر.");
     boot();
   });
   $("outBtn").onclick = async () => { await sb.auth.signOut(); location.reload(); };
-  $("themeBtn").onclick = cycleTheme;
+  $("themeBtn").onclick = U.skinPicker;
+
+  // ربط الرقم الوطني بالحساب (يظهر مرة واحدة إن لم يُربط)
+  async function askNid(force) {
+    let me; try { me = await rpc("t_me"); } catch (e) { return; }
+    if (!me || (me.nid && !force)) return;
+    const b = openSheet(`<h3>${ic("id")} اربط رقمك الوطني بحسابك</h3>
+      <p class="muted" style="margin-bottom:14px">بعدها تدخل إلى المنصة برقمك الوطني وكلمة السر نفسها، دون كتابة البريد.</p>
+      <input class="input mono" id="mNid" inputmode="numeric" maxlength="10" dir="ltr" style="font-size:22px;text-align:center;letter-spacing:.14em" value="${esc(me.nid || "")}" placeholder="٠٠٠٠٠٠٠٠٠٠">
+      <div class="row" style="margin-top:14px"><button class="btn primary grow" id="mNidOk">ربط الرقم</button><button class="btn ghost" id="mNidNo">لاحقًا</button></div>`);
+    const inp = b.querySelector("#mNid");
+    inp.oninput = () => { inp.value = digits(inp.value).replace(/\D/g, "").slice(0, 10); };
+    b.querySelector("#mNidNo").onclick = () => { closeSheet(); try { sessionStorage.setItem("sahm_nid_later", "1"); } catch (e) {} };
+    b.querySelector("#mNidOk").onclick = async () => {
+      try { await guard(rpc("t_set_my_nid", { p_nid: inp.value }), "رُبط رقمك الوطني. ادخل به من الآن."); closeSheet();
+            try { localStorage.setItem("sahm_t_nid", inp.value); } catch (e) {} } catch (e) {}
+    };
+  }
 
   async function boot() {
     $("vLogin").classList.add("hide"); $("app").classList.remove("hide");
     try { await reload(); } catch (e) { toast(e.message, true); return; }
     if (!location.hash) location.hash = "#home";
     route();
+    let later = false; try { later = sessionStorage.getItem("sahm_nid_later") === "1"; } catch (e) {}
+    if (!later) setTimeout(() => askNid(false), 600);
   }
   async function reload(withQuestions = true) {
     const [d, qs] = await Promise.all([rpc("t_bootstrap"), withQuestions ? rpc("t_questions") : Promise.resolve(S.qs)]);
@@ -56,7 +128,7 @@
   const outLabel = (id) => (S.out[id] ? S.out[id].label : "—");
 
   // ================= التوجيه =================
-  const TITLES = { home: "الرئيسية", bank: "بنك الأسئلة", exams: "الاختبارات", results: "النتائج والتحليل", students: "بيانات دخول الطلبة" };
+  const TITLES = { home: "الرئيسية", bank: "بنك الأسئلة", exams: "الاختبارات", results: "النتائج والتحليل", students: "الطلبة والشعب", records: "سجلات العلامات" };
   function route() {
     const [v, arg] = (location.hash || "#home").slice(1).split("/");
     const view = TITLES[v] ? v : "home";
@@ -70,6 +142,7 @@
     if (view === "exams") renderExams(arg);
     if (view === "results") renderResults(arg);
     if (view === "students") renderStudents(arg);
+    if (view === "records") renderRecords(arg);
     window.scrollTo(0, 0);
   }
   document.querySelectorAll(".tabbar button").forEach((b) => (b.onclick = () => (location.hash = "#" + b.dataset.v)));
@@ -385,8 +458,12 @@
     const sel = e.question_ids.slice(); const locked = e.n_started > 0;
     const pf = { lesson: "", outcome: "", bloom: "" };
     let selMode = x ? x.selection || "fixed" : "random";
-    const blankRule = () => ({ unit_id: null, lesson_id: null, outcome_id: null, easy: 0, medium: 0, hard: 0 });
-    const rules = (x && x.draw_rules && x.draw_rules.length ? x.draw_rules : [blankRule()]).map((r) => Object.assign(blankRule(), r));
+    const blankRule = () => ({ lesson_ids: [], easy: 0, medium: 0, hard: 0 });
+    const toLessons = (r) => (r.lesson_ids && r.lesson_ids.length) ? r.lesson_ids.slice()
+      : r.lesson_id ? [r.lesson_id] : r.outcome_id && S.out[r.outcome_id] ? [S.out[r.outcome_id].lesson.id]
+      : r.unit_id && S.units[r.unit_id] ? S.units[r.unit_id].lessons.map((l) => l.id) : [];
+    const rules = (x && x.draw_rules && x.draw_rules.length ? x.draw_rules : [blankRule()])
+      .map((r) => ({ lesson_ids: toLessons(r), easy: +r.easy || 0, medium: +r.medium || 0, hard: +r.hard || 0 }));
     const b = openSheet(`<h3>${x ? "تعديل: " + esc(x.title) : "اختبار جديد"}</h3>
       <div class="fields two">
         <label class="field"><span>العنوان</span><input class="input" id="eT" value="${esc(e.title)}" placeholder="مثال: كويز ٣ — تحليل العمليات"></label>
@@ -441,11 +518,14 @@
     let mode = e.mode;
     // ---------- السحب العشوائي ----------
     const DK = [["easy", "سهل"], ["medium", "متوسط"], ["hard", "صعب"]];
-    const poolN = (r, d) => S.qs.filter((q) => q.active && q.difficulty === d && S.out[q.outcome_id] &&
-      (!r.outcome_id || q.outcome_id === r.outcome_id) && (!r.lesson_id || S.out[q.outcome_id].lesson.id === r.lesson_id) &&
-      (!r.unit_id || S.out[q.outcome_id].unit.id === r.unit_id)).length;
-    const scopeName = (r) => r.outcome_id ? outLabel(r.outcome_id) : r.lesson_id ? "الوحدة " + S.lessons[r.lesson_id].unit.seq + " · الدرس " + S.lessons[r.lesson_id].seq
-      : r.unit_id ? "الوحدة " + S.units[r.unit_id].seq : "كل الكتاب";
+    const poolN = (r, d) => { const set = new Set(r.lesson_ids); return S.qs.filter((q) => q.active && q.difficulty === d && S.out[q.outcome_id] &&
+      (!set.size || set.has(S.out[q.outcome_id].lesson.id))).length; };
+    const scopeName = (r) => {
+      if (!r.lesson_ids.length) return "كل الكتاب";
+      return S.d.units.map((u) => { const ls = u.lessons.filter((l) => r.lesson_ids.includes(l.id)); if (!ls.length) return "";
+        return ls.length === u.lessons.length ? "الوحدة " + u.seq + " كاملة" : "الوحدة " + u.seq + ": الدروس " + ls.map((l) => l.seq).join("، "); })
+        .filter(Boolean).join(" + ");
+    };
     const rulesSum = () => {
       const t = { easy: 0, medium: 0, hard: 0 }; const warn = [];
       rules.forEach((r, i) => DK.forEach(([k, d]) => { const n = +r[k] || 0; t[k] += n; const have = poolN(r, d);
@@ -453,35 +533,41 @@
       const tot = t.easy + t.medium + t.hard;
       b.querySelector("#rSum").innerHTML = `<b>كل طالب يأخذ ${tot} سؤالًا</b> <span class="tiny">— سهل ${t.easy} · متوسط ${t.medium} · صعب ${t.hard}</span>` +
         (warn.length ? `<div class="alert warn" style="margin-top:8px"><span class="ic">⚠️</span><span>${warn.join("<br>")}</span></div>` : "");
-      b.querySelectorAll(".rule").forEach((row, i) => DK.forEach(([k, d]) => {
-        const have = poolN(rules[i], d), inp = row.querySelector(".r-" + k);
-        row.querySelector(".h-" + k).textContent = "من " + have;
-        inp.style.borderColor = (+rules[i][k] || 0) > have ? "var(--danger)" : "";
-      }));
+      b.querySelectorAll(".rule").forEach((row, i) => {
+        row.querySelector(".r-scope").textContent = scopeName(rules[i]);
+        DK.forEach(([k, d]) => {
+          const have = poolN(rules[i], d), inp = row.querySelector(".r-" + k);
+          row.querySelector(".h-" + k).textContent = "من " + have;
+          inp.style.borderColor = (+rules[i][k] || 0) > have ? "var(--danger)" : "";
+        });
+      });
       return tot;
     };
     const drawRules = () => {
-      const box = b.querySelector("#rRules");
-      box.innerHTML = rules.map((r, i) => {
-        const lessons = r.unit_id ? S.units[r.unit_id].lessons : lessonsOf("");
-        const outs = r.lesson_id ? S.lessons[r.lesson_id].outcomes : [];
-        const dis = locked ? "disabled" : "";
-        return `<div class="card pad rule" data-i="${i}">
-          <div class="row sp" style="margin-bottom:6px"><b style="font-size:13.5px">القاعدة ${i + 1}</b>${locked || rules.length < 2 ? "" : `<button type="button" class="btn sm ghost r-del">✕ حذف</button>`}</div>
-          <div class="fields three">
-            <label class="field"><span>الوحدة</span><select class="input r-u" ${dis}>${optionsHtml(r.unit_id || "", S.d.units.map((u) => [u.id, "الوحدة " + u.seq + " · " + u.title]), "كل الوحدات")}</select></label>
-            <label class="field"><span>الدرس</span><select class="input r-l" ${dis}>${optionsHtml(r.lesson_id || "", lessons.map((l) => [l.id, (r.unit_id ? "" : "و" + S.lessons[l.id].unit.seq + " · ") + "الدرس " + l.seq + " · " + l.title]), "كل الدروس")}</select></label>
-            <label class="field"><span>النتاج</span><select class="input r-o" ${dis}>${optionsHtml(r.outcome_id || "", outs.map((o) => [o.id, "ن" + o.seq + " — " + o.text]), "كل النتاجات")}</select></label>
-          </div>
-          <div class="row wrap" style="gap:14px">${DK.map(([k, d]) => `<label class="row" style="gap:6px"><span style="font-weight:600;font-size:13.5px">${d}</span>
-            <input type="number" min="0" class="input mono r-${k}" value="${+r[k] || 0}" style="width:74px" ${dis}><span class="tiny h-${k}"></span></label>`).join("")}</div></div>`;
-      }).join("");
+      const box = b.querySelector("#rRules"), dis = locked ? "disabled" : "";
+      box.innerHTML = rules.map((r, i) => `<div class="card pad rule" data-i="${i}">
+          <div class="row sp" style="margin-bottom:6px"><b style="font-size:13.5px">القاعدة ${i + 1}: <span class="r-scope" style="color:var(--brand)"></span></b>
+            ${locked || rules.length < 2 ? "" : `<button type="button" class="btn sm ghost r-del">✕ حذف</button>`}</div>
+          <div class="tiny" style="margin-bottom:6px">علّم الدروس التي تُسحب منها الأسئلة (من وحدة أو أكثر). بلا تعليم = الكتاب كله.</div>
+          <div class="tree">${S.d.units.map((u) => {
+            const n = u.lessons.filter((l) => r.lesson_ids.includes(l.id)).length;
+            return `<div class="tu"><label class="check tu-h"><input type="checkbox" class="t-unit" data-u="${u.id}" ${n && n === u.lessons.length ? "checked" : ""} ${dis}>
+                <b>الوحدة ${u.seq}</b> <span class="tiny">${esc(u.title)}</span></label>
+              <div class="chips">${u.lessons.map((l) => `<label class="chip lchip" title="${esc(l.title)}"><input type="checkbox" class="t-les" data-l="${l.id}" ${r.lesson_ids.includes(l.id) ? "checked" : ""} ${dis}>
+                الدرس ${l.seq} <span class="tiny">${esc(l.title.length > 26 ? l.title.slice(0, 25) + "…" : l.title)}</span></label>`).join("")}</div></div>`;
+          }).join("")}</div>
+          <div class="row wrap" style="gap:14px;margin-top:10px">${DK.map(([k, d]) => `<label class="row" style="gap:6px"><span style="font-weight:600;font-size:13.5px">${d}</span>
+            <input type="number" min="0" class="input mono r-${k}" value="${+r[k] || 0}" style="width:74px" ${dis}><span class="tiny h-${k}"></span></label>`).join("")}</div></div>`).join("");
       box.querySelectorAll(".rule").forEach((row) => {
         const i = +row.dataset.i, r = rules[i];
-        row.querySelector(".r-u").onchange = (ev) => { r.unit_id = ev.target.value || null; r.lesson_id = null; r.outcome_id = null; drawRules(); };
-        row.querySelector(".r-l").onchange = (ev) => { r.lesson_id = ev.target.value || null; r.outcome_id = null;
-          if (r.lesson_id) r.unit_id = S.lessons[r.lesson_id].unit.id; drawRules(); };
-        row.querySelector(".r-o").onchange = (ev) => { r.outcome_id = ev.target.value || null; drawRules(); };
+        row.querySelectorAll(".t-unit").forEach((cb) => {
+          const u = S.units[cb.dataset.u], n = u.lessons.filter((l) => r.lesson_ids.includes(l.id)).length;
+          cb.indeterminate = n > 0 && n < u.lessons.length;
+          cb.onchange = () => { const ids = u.lessons.map((l) => l.id);
+            r.lesson_ids = r.lesson_ids.filter((x) => !ids.includes(x)); if (cb.checked) r.lesson_ids.push(...ids); drawRules(); };
+        });
+        row.querySelectorAll(".t-les").forEach((cb) => (cb.onchange = () => {
+          r.lesson_ids = r.lesson_ids.filter((x) => x !== cb.dataset.l); if (cb.checked) r.lesson_ids.push(cb.dataset.l); drawRules(); }));
         DK.forEach(([k]) => (row.querySelector(".r-" + k).oninput = (ev) => { r[k] = Math.max(0, parseInt(ev.target.value, 10) || 0); rulesSum(); }));
         const del = row.querySelector(".r-del"); if (del) del.onclick = () => { rules.splice(i, 1); drawRules(); };
       });
@@ -499,8 +585,8 @@
       b.querySelector("#rAdd").onclick = () => { rules.push(blankRule()); drawRules(); };
       b.querySelector("#rPerLesson").onclick = () => {
         const u = S.units[b.querySelector("#rUnitAll").value];
-        if (rules.length === 1 && !rules[0].unit_id && !rules[0].lesson_id && !(rules[0].easy + rules[0].medium + rules[0].hard)) rules.pop();
-        u.lessons.forEach((l) => rules.push(Object.assign(blankRule(), { unit_id: u.id, lesson_id: l.id })));
+        if (rules.length === 1 && !rules[0].lesson_ids.length && !(rules[0].easy + rules[0].medium + rules[0].hard)) rules.pop();
+        u.lessons.forEach((l) => rules.push(Object.assign(blankRule(), { lesson_ids: [l.id] })));
         drawRules(); toast("أُضيفت " + u.lessons.length + " قواعد — حدّد أعدادها");
       };
     }
@@ -685,40 +771,98 @@
   // ================= بيانات دخول الطلبة =================
   async function renderStudents(secId) {
     secId = secId || (S.d.sections[0] || {}).id;
-    if (!secId) { $("v-students").innerHTML = '<div class="card empty">لا شعب بعد. أضفها من الدفتر الجانبي.</div>'; return; }
+    const secOpts = (sel) => optionsHtml(sel, S.d.sections.map((s) => [s.id, s.name]));
     $("v-students").innerHTML = `<div class="card pad"><div class="row wrap">
-      <select class="input grow" id="cSec">${optionsHtml(secId, S.d.sections.map((s) => [s.id, s.name + " (" + s.n_cred + "/" + s.n + " جاهز)"]))}</select>
-      <button class="btn" id="cPaste">📋 لصق من إكسل</button><button class="btn primary" id="cSave">حفظ</button></div>
-      <p class="tiny" style="margin:10px 0 0">يدخل الطالب إلى <a href="index.html" target="_blank">صفحة الطلبة</a> برقمه الوطني وتاريخ ميلاده. أكمل البيانات هنا أو الصقها من كشف إكسل.</p></div>
-      <div id="cBody" style="margin-top:12px"><div class="empty">جارٍ التحميل…</div></div>`;
+      <select class="input grow" id="cSec" style="min-width:200px">${S.d.sections.length ? optionsHtml(secId, S.d.sections.map((s) => [s.id, s.name + " (" + s.n_cred + "/" + s.n + " جاهز للدخول)"])) : ""}</select>
+      <button class="btn ghost sm" id="cSecNew">＋ شعبة</button>${secId ? '<button class="btn ghost sm" id="cSecRen">✎ تسمية الشعبة</button>' : ""}</div>
+      ${secId ? `<div class="row wrap" style="margin-top:10px">
+        <button class="btn" id="cAdd">＋ طالب</button><button class="btn" id="cPaste">📋 لصق من إكسل</button>
+        <button class="btn primary" id="cSave">💾 حفظ التعديلات</button><span class="tiny" id="cDirty"></span></div>
+      <p class="tiny" style="margin:10px 0 0">عدّل الأسماء والأرقام مباشرة في الجدول ثم اضغط «حفظ». يدخل الطالب إلى <a href="index.html" target="_blank">صفحة الطلبة</a> برقمه الوطني وتاريخ ميلاده.</p>` : ""}</div>
+      <div id="cBody" style="margin-top:12px">${secId ? '<div class="empty">جارٍ التحميل…</div>' : '<div class="card empty">لا شعب بعد. أضف شعبة من الزر أعلاه.</div>'}</div>`;
+    $("cSecNew").onclick = () => sectionSheet(null);
+    if (!secId) return;
+    $("cSecRen").onclick = () => sectionSheet(S.d.sections.find((s) => s.id === secId));
     $("cSec").onchange = (e) => (location.hash = "#students/" + e.target.value);
     let rows;
     try { rows = await rpc("t_students", { p_section: secId }); } catch (e) { return toast(e.message, true); }
-    $("cBody").innerHTML = `<div class="tablewrap"><table class="t"><tr><th class="num">#</th><th>الطالب</th><th>الرقم الوطني</th><th>تاريخ الميلاد</th></tr>` +
-      rows.map((r) => `<tr data-id="${r.id}"><td class="num">${r.serial}</td><td>${esc(r.name)}</td>
+    const active = rows.filter((r) => r.active), archived = rows.filter((r) => !r.active);
+    const rowHtml = (r) => `<tr ${r.id ? `data-id="${r.id}"` : 'data-new="1"'}>
+        <td><input class="input mono cS" inputmode="numeric" value="${r.serial == null ? "" : r.serial}" style="width:62px;min-width:0"></td>
+        <td><input class="input cName" value="${esc(r.name || "")}" placeholder="اسم الطالب الرباعي" style="min-width:200px"></td>
         <td><input class="input mono cN" inputmode="numeric" dir="ltr" value="${esc(r.nid || "")}"></td>
-        <td><input class="input cD" type="date" value="${esc(r.dob || "")}"></td></tr>`).join("") + "</table></div>";
-    $("cBody").querySelectorAll(".cN").forEach((i) => (i.oninput = () => { i.value = digits(i.value).replace(/\D/g, ""); }));
+        <td><input class="input cD" type="date" value="${esc(r.dob || "")}"></td>
+        <td><select class="input cSecMove" style="min-width:130px">${secOpts(secId)}</select></td>
+        <td>${r.id ? `<button class="btn sm ghost cDel" title="حذف">🗑</button>` : `<button class="btn sm ghost cRm" title="إزالة السطر">✕</button>`}</td></tr>`;
+    $("cBody").innerHTML = `<div class="tablewrap"><table class="t" id="cTable"><thead><tr><th>#</th><th>اسم الطالب</th><th>الرقم الوطني</th><th>تاريخ الميلاد</th><th>الشعبة</th><th></th></tr></thead>
+      <tbody>${active.map(rowHtml).join("")}</tbody></table></div>` +
+      (archived.length ? `<details class="card pad" style="margin-top:12px"><summary style="cursor:pointer;font-weight:700">الطلبة المؤرشفون (${archived.length})</summary>
+        <p class="tiny">طلبة حُذفوا ولهم سجلات (علامات أو أحداث)، فحُفظت سجلاتهم كدليل ولا يظهرون في الكشوف.</p>
+        ${archived.map((r) => `<div class="row sp" style="padding:6px 0;border-bottom:1px solid var(--line)"><span>${r.serial} · ${esc(r.name)}</span>
+          <button class="btn sm" data-restore="${r.id}">استرجاع</button></div>`).join("")}</details>` : "");
+    const markDirty = () => { $("cDirty").textContent = "• توجد تعديلات غير محفوظة"; };
+    const wire = (root) => {
+      root.querySelectorAll(".cN").forEach((i) => (i.oninput = () => { i.value = digits(i.value).replace(/\D/g, ""); markDirty(); }));
+      root.querySelectorAll(".cS").forEach((i) => (i.oninput = () => { i.value = digits(i.value).replace(/\D/g, ""); markDirty(); }));
+      root.querySelectorAll(".cName,.cD,.cSecMove").forEach((i) => (i.addEventListener("input", markDirty), i.addEventListener("change", markDirty)));
+      root.querySelectorAll(".cRm").forEach((btn) => (btn.onclick = () => btn.closest("tr").remove()));
+      root.querySelectorAll(".cDel").forEach((btn) => (btn.onclick = async () => {
+        const tr = btn.closest("tr"), name = tr.querySelector(".cName").value;
+        if (!(await confirmSheet("حذف " + name + "؟", "إن كانت له علامات أو أحداث يُؤرشف بدل الحذف، فتبقى سجلاته محفوظة ويمكن استرجاعه.", "احذف", true))) return;
+        try { const r = await rpc("t_delete_student", { p_id: tr.dataset.id }); toast(r.archived ? "أُرشف الطالب (له سجلات محفوظة)" : "حُذف الطالب"); await reload(false); renderStudents(secId); }
+        catch (e) { toast(e.message, true); }
+      }));
+    };
+    wire($("cBody"));
+    $("cBody").querySelectorAll("[data-restore]").forEach((btn) => (btn.onclick = async () => {
+      try { await rpc("t_restore_student", { p_id: btn.dataset.restore }); toast("استُرجع الطالب"); await reload(false); renderStudents(secId); } catch (e) { toast(e.message, true); }
+    }));
+    const addRow = (r) => {
+      const tb = $("cTable").querySelector("tbody"); tb.insertAdjacentHTML("beforeend", rowHtml(r || {}));
+      const tr = tb.lastElementChild; wire(tr); markDirty(); return tr;
+    };
+    $("cAdd").onclick = () => { const tr = addRow(); tr.querySelector(".cName").focus(); tr.scrollIntoView({ behavior: "smooth", block: "center" }); };
     $("cSave").onclick = async () => {
-      const p = [...$("cBody").querySelectorAll("tr[data-id]")].map((tr) => ({ id: tr.dataset.id, nid: tr.querySelector(".cN").value, dob: tr.querySelector(".cD").value || null }));
-      try { await rpc("t_save_credentials", { p_rows: p }); toast("حُفظ — " + p.filter((x) => x.nid && x.dob).length + " طالبًا جاهزون للدخول"); await reload(false); renderStudents(secId); } catch (e) { toast(e.message, true); }
+      const p = [...$("cTable").querySelectorAll("tbody tr")].map((tr) => ({
+        id: tr.dataset.id || null, serial: tr.querySelector(".cS").value || null, name: tr.querySelector(".cName").value.trim(),
+        nid: tr.querySelector(".cN").value, dob: tr.querySelector(".cD").value || null, section_id: tr.querySelector(".cSecMove").value }));
+      try {
+        const r = await rpc("t_save_students", { p_section: secId, p_rows: p });
+        toast("حُفظ — عُدّل " + r.updated + (r.added ? " وأُضيف " + r.added : "") + " · جاهز للدخول " + p.filter((x) => x.nid && x.dob).length);
+        await reload(false); renderStudents(secId);
+      } catch (e) { toast(e.message, true); }
     };
     $("cPaste").onclick = () => {
-      const b = openSheet(`<h3>لصق الأرقام الوطنية وتواريخ الميلاد</h3>
-        <p class="tiny">ثلاثة أعمدة بهذا الترتيب: <b>الرقم التسلسلي | الرقم الوطني | تاريخ الميلاد</b>. التاريخ بصيغة يوم/شهر/سنة (15/3/2008) أو 2008-03-15.</p>
+      const b = openSheet(`<h3>لصق الطلبة من إكسل</h3>
+        <p class="tiny">أربعة أعمدة بهذا الترتيب: <b>الرقم التسلسلي | اسم الطالب | الرقم الوطني | تاريخ الميلاد</b>.<br>
+        إن وُجد الرقم التسلسلي في الشعبة تُحدَّث بيانات الطالب، وإلا يُضاف طالبًا جديدًا. التاريخ بصيغة 15/3/2008 أو 2008-03-15.<br>
+        (يُقبل أيضًا ثلاثة أعمدة: الرقم التسلسلي | الرقم الوطني | تاريخ الميلاد.)</p>
         <textarea class="input mono" id="cpT" rows="8" dir="auto"></textarea><button class="btn primary block" id="cpGo" style="margin-top:10px">تعبئة الجدول</button>`);
       b.querySelector("#cpGo").onclick = () => {
-        let n = 0, bad = 0;
+        let upd = 0, add = 0, bad = 0;
         parseTSV(b.querySelector("#cpT").value).forEach((r) => {
           const serial = parseInt(digits(r[0] || "").replace(/\D/g, ""), 10); if (!serial) return;
-          const tr = [...$("cBody").querySelectorAll("tr[data-id]")].find((t) => +t.children[0].textContent === serial);
-          if (!tr) { bad++; return; }
-          tr.querySelector(".cN").value = digits(r[1] || "").replace(/\D/g, "");
-          const d = parseDate(r[2]); if (d) tr.querySelector(".cD").value = d; else if ((r[2] || "").trim()) bad++;
-          n++;
+          const threeCols = !/[\u0621-\u064A\u0671-\u06D3a-zA-Z]/.test(r[1] || "");
+          const name = threeCols ? "" : (r[1] || "").trim(), nid = threeCols ? r[1] : r[2], dob = threeCols ? r[2] : r[3];
+          let tr = [...$("cTable").querySelectorAll("tbody tr")].find((t) => +t.querySelector(".cS").value === serial);
+          if (!tr) { if (!name) { bad++; return; } tr = addRow({ serial }); add++; } else upd++;
+          if (name) tr.querySelector(".cName").value = name;
+          if (nid) tr.querySelector(".cN").value = digits(nid).replace(/\D/g, "");
+          const d = parseDate(dob); if (d) tr.querySelector(".cD").value = d; else if ((dob || "").trim()) bad++;
         });
-        closeSheet(); toast("عُبّئ " + n + " طالبًا" + (bad ? " — تعذّر " + bad + " صفًّا" : "") + ". راجع ثم اضغط «حفظ».", !!bad);
+        markDirty(); closeSheet();
+        toast("حُدّث " + upd + " وأُضيف " + add + (bad ? " — تعذّر " + bad + " صفًّا" : "") + ". راجع ثم اضغط «حفظ».", !!bad);
       };
+    };
+  }
+  function sectionSheet(sec) {
+    const b = openSheet(`<h3>${sec ? "تسمية الشعبة" : "شعبة جديدة"}</h3>
+      <label class="field"><span>اسم الشعبة</span><input class="input" id="snName" value="${esc(sec ? sec.name : "")}" placeholder="مثال: أعمال / ب"></label>
+      <button class="btn primary block" id="snGo">حفظ</button>`);
+    b.querySelector("#snGo").onclick = async () => {
+      try { const r = await rpc("t_save_section", { p: { id: sec ? sec.id : null, name: b.querySelector("#snName").value } });
+        closeSheet(); toast("حُفظت الشعبة"); await reload(false); location.hash = "#students/" + r.id; route(); }
+      catch (e) { toast(e.message, true); }
     };
   }
   function parseDate(s) {
@@ -727,6 +871,189 @@
     m = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/); if (m) return m[3] + "-" + m[2].padStart(2, "0") + "-" + m[1].padStart(2, "0");
     if (/^\d{5}$/.test(s)) { const d = new Date(Date.UTC(1899, 11, 30) + +s * 86400000); return d.toISOString().slice(0, 10); } // رقم تاريخ إكسل
     return null;
+  }
+
+  // ================= سجلات العلامات (تجميعي + تفصيلي) =================
+  const REC = { kind: "sum", show: "level", data: null, sec: null };
+  const UNIT_CLS = ["u0", "u1", "u2", "u3", "u4", "u5"];
+  const VERBAL = [[90, "ممتاز"], [80, "جيد جدًا"], [70, "جيد"], [60, "متوسط"], [50, "مقبول"], [0, "راسب"]];
+  const verbalOf = (pct) => { for (const v of VERBAL) if (pct >= v[0]) return v[1]; return "—"; };
+  const nf = (v) => (v == null || isNaN(v) ? "—" : String(Math.round(v * 100) / 100));
+
+  async function renderRecords(secId) {
+    secId = secId || REC.sec || (S.d.sections[0] || {}).id; REC.sec = secId;
+    if (!secId) { $("v-records").innerHTML = '<div class="card empty">لا شعب بعد.</div>'; return; }
+    $("v-records").innerHTML = `<div class="card pad noprint"><div class="row wrap">
+        <select class="input grow" id="rcSec" style="min-width:200px">${optionsHtml(secId, S.d.sections.map((s) => [s.id, s.name]))}</select>
+        <div class="seg" id="rcKind"><button data-k="sum" aria-pressed="${REC.kind === "sum"}">السجل التجميعي</button><button data-k="det" aria-pressed="${REC.kind === "det"}">السجل التفصيلي</button></div></div>
+      <div class="row wrap" style="margin-top:10px">
+        <div class="seg ${REC.kind === "det" ? "" : "hide"}" id="rcShow"><button data-s="level" aria-pressed="${REC.show === "level"}">خلايا النتاجات: المستوى ١–٤</button><button data-s="mark" aria-pressed="${REC.show === "mark"}">خلايا النتاجات: العلامة</button></div>
+        <span class="grow"></span><button class="btn primary" id="rcPrint">🖨 طباعة / PDF</button><button class="btn" id="rcXlsx">⬇ Excel منسّق</button></div></div>
+      <div class="rec-scroll"><div id="recPaper" class="paper"><div class="empty">جارٍ التحميل…</div></div></div>`;
+    $("rcSec").onchange = (e) => (location.hash = "#records/" + e.target.value);
+    $("rcKind").querySelectorAll("button").forEach((b) => (b.onclick = () => { REC.kind = b.dataset.k; renderRecords(secId); }));
+    $("rcShow").querySelectorAll("button").forEach((b) => (b.onclick = () => { REC.show = b.dataset.s; renderRecords(secId); }));
+    $("rcPrint").onclick = printRecord;
+    $("rcXlsx").onclick = () => exportRecordXlsx().catch((e) => toast(e.message, true));
+    try { REC.data = await rpc("t_records", { p_section: secId }); } catch (e) { return toast(e.message, true); }
+    $("recPaper").innerHTML = recordHtml();
+  }
+
+  function recCalc(R) {
+    const c = R.subject, all = R.units.flatMap((u) => u.outcomes);
+    return R.students.map((st) => {
+      const lv = st.levels || {}, assessed = all.filter((o) => lv[o.id]), N = assessed.length, w = {};
+      assessed.forEach((o) => (w[o.id] = (lv[o.id] / 4) * c.cap2 / N));
+      const units = R.units.map((u) => { const os = u.outcomes.filter((o) => lv[o.id]); return os.length ? os.reduce((a, o) => a + w[o.id], 0) : null; });
+      const second = N ? assessed.reduce((a, o) => a + w[o.id], 0) : null;
+      const first = st.first ? (st.first.absent ? 0 : st.first.mark) : null;
+      const fin = st.final ? (st.final.absent ? 0 : st.final.mark) : null;
+      const parts = [first, second, fin].filter((v) => v != null).map(Number);
+      const total = parts.length ? parts.reduce((a, b) => a + b, 0) : null;
+      const complete = first != null && second != null && fin != null;
+      return Object.assign({}, st, { lv, w, units, second, first: first == null ? null : +first, fin: fin == null ? null : +fin, total, N, complete,
+        verbal: complete ? verbalOf((total / c.max) * 100) : "—" });
+    });
+  }
+
+  function recHeaderInfo(R) {
+    const sem = R.section.semester === 1 ? "الأول" : "الثاني";
+    return {
+      right: [R.teacher.directorate, R.teacher.school].filter(Boolean),
+      left: ["المبحث: " + R.subject.name, "الصف: " + R.subject.grade, "الشعبة: " + R.section.name, "العام الدراسي " + R.section.year + " — الفصل " + sem],
+      title: "سجل العلامات الجانبي", sub: REC.kind === "sum" ? "السجل التجميعي" : "السجل التفصيلي — النتاجات"
+    };
+  }
+
+  function recordHtml() {
+    const R = REC.data, rows = recCalc(R), c = R.subject, H = recHeaderInfo(R), det = REC.kind === "det";
+    const units = R.units, outs = units.flatMap((u, ui) => u.outcomes.map((o) => Object.assign({ ui, useq: u.seq }, o)));
+    let h = `<div class="rec-head"><div class="rh-side">${H.right.map(esc).join("<br>")}</div>
+      <div class="rh-title">${esc(H.title)}<span>${esc(H.sub)}</span></div>
+      <div class="rh-side rh-left">${H.left.map(esc).join("<br>")}</div></div>`;
+    h += '<table class="rec"><thead><tr>';
+    h += `<th rowspan="2" class="g-name n-col">م</th><th rowspan="2" class="g-name name-col">اسم الطالب</th><th rowspan="2" class="g-first">التقويم الأول<small>${nf(c.cap1)}</small></th>`;
+    if (det) {
+      units.forEach((u, ui) => { if (u.outcomes.length) h += `<th colspan="${u.outcomes.length}" class="g-${UNIT_CLS[ui % 6]}" title="${esc(u.title)}">${u.outcomes.length < 4 ? "و" + u.seq : "الوحدة " + u.seq + ": " + esc(u.title)}</th>`; });
+      h += `<th rowspan="2" class="g-second">مجموع التقويم الثاني<small>${nf(c.cap2)}</small></th>`;
+    } else {
+      h += `<th colspan="${units.length + 1}" class="g-second">التقويم الثاني — النتاجات</th>`;
+    }
+    h += `<th rowspan="2" class="g-final">الاختبار النهائي<small>${nf(c.cap3)}</small></th><th rowspan="2" class="g-total">المجموع<small>${nf(c.max)}</small></th><th rowspan="2" class="g-verbal">التقدير</th></tr><tr>`;
+    if (det) outs.forEach((o) => { h += `<th class="vt g-${UNIT_CLS[o.ui % 6]}"><div>ن${o.seq} (د${o.lesson}): ${esc(o.text)}</div></th>`; });
+    else { units.forEach((u, ui) => { h += `<th class="g-${UNIT_CLS[ui % 6]} unit-col">الوحدة ${u.seq}<small>${esc(u.title)}</small></th>`; }); h += `<th class="g-second">المجموع<small>${nf(c.cap2)}</small></th>`; }
+    h += "</tr></thead><tbody>";
+    rows.forEach((r) => {
+      h += `<tr><td class="c-name num">${r.serial}</td><td class="c-name name-col">${esc(r.name)}</td><td class="c-first num">${nf(r.first)}</td>`;
+      if (det) {
+        outs.forEach((o) => { const L = r.lv[o.id];
+          h += L ? (REC.show === "level" ? `<td class="num lvc lv${L}">${L}</td>` : `<td class="num c-${UNIT_CLS[o.ui % 6]}">${nf(r.w[o.id])}</td>`) : `<td class="num c-${UNIT_CLS[o.ui % 6]} dim">·</td>`; });
+        h += `<td class="c-second num b">${nf(r.second)}</td>`;
+      } else {
+        r.units.forEach((v, ui) => { h += `<td class="c-${UNIT_CLS[ui % 6]} num">${nf(v)}</td>`; });
+        h += `<td class="c-second num b">${nf(r.second)}</td>`;
+      }
+      h += `<td class="c-final num">${nf(r.fin)}</td><td class="c-total num b">${nf(r.total)}${r.complete || r.total == null ? "" : "<sup>*</sup>"}</td><td class="c-verbal">${esc(r.verbal)}</td></tr>`;
+    });
+    h += "</tbody></table>";
+    h += `<div class="rec-note">علامة التقويم الثاني = متوسط مستويات إتقان النتاجات المقيسة ÷ ٤ × ${nf(c.cap2)}؛ ويُعتمد لكل نتاج ${c.rule === "latest" ? "أحدث" : "أعلى"} مستوى قيس به.
+      ${det ? (REC.show === "level" ? "المستويات: ١ مبتدئ · ٢ نامٍ · ٣ متمكّن · ٤ متميّز. (·) لم يُقَس بعد." : "خلية النتاج = نصيبه من علامة التقويم الثاني، ومجموع الخلايا = علامة التقويم الثاني. (·) لم يُقَس بعد.")
+            : "عمود الوحدة = مجموع نصيب نتاجاتها من علامة التقويم الثاني، ومجموع الوحدات = علامة التقويم الثاني."}
+      (*) المجموع جزئي لنقص إحدى العلامات. التقدير وفق المادة (١٨) من أسس النجاح.</div>
+      <div class="rec-sign"><span>معلم المبحث: ${esc(R.teacher.name || "")} ............</span><span>مدير المدرسة: ....................</span><span>المشرف التربوي: ....................</span></div>`;
+    return h;
+  }
+
+  function printRecord() {
+    if (!REC.data) return;
+    const H = recHeaderInfo(REC.data);
+    const w = window.open("", "_blank");
+    if (!w) { toast("اسمح للمتصفح بفتح نافذة جديدة لطباعة السجل", true); return; }
+    let css = "";
+    for (const ss of document.styleSheets) { try { css += [...ss.cssRules].map((r) => r.cssText).join("\n"); } catch (e) { /* خطوط Google */ } }
+    w.document.write(`<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="utf-8">
+      <title>${esc(H.title + " — " + H.sub + " — " + REC.data.section.name)}</title>
+      <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;700&family=Amiri:wght@400;700&display=swap" rel="stylesheet">
+      <style>${css}</style>
+      <style>@page{size:A4 landscape;margin:7mm} html,body{background:#fff;margin:0} .paper{padding:0;min-width:0}</style></head>
+      <body><div class="paper" id="p">${recordHtml()}</div></body></html>`);
+    w.document.close();
+    const fit = () => {
+      const t = w.document.querySelector("table.rec"), p = w.document.getElementById("p");
+      if (t && p) p.style.zoom = Math.min(1, 1040 / Math.max(t.scrollWidth, 1)).toFixed(3);
+      setTimeout(() => { w.focus(); w.print(); }, 250);
+    };
+    const go = () => (w.document.fonts && w.document.fonts.ready ? w.document.fonts.ready.then(fit) : fit());
+    if (w.document.readyState === "complete") go(); else w.addEventListener("load", go);
+  }
+
+  function loadScript(src) {
+    return new Promise((ok, bad) => { if (window.XLSX && window.XLSX.utils && window.XLSX.__styled) return ok();
+      const s = document.createElement("script"); s.src = src; s.onload = () => { window.XLSX.__styled = true; ok(); };
+      s.onerror = () => bad(new Error("تعذّر تحميل مكتبة Excel. تحقّق من الاتصال.")); document.head.appendChild(s); });
+  }
+  async function exportRecordXlsx() {
+    if (!REC.data) return;
+    await loadScript("https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js");
+    const X = window.XLSX, R = REC.data, rows = recCalc(R), c = R.subject, H = recHeaderInfo(R), det = REC.kind === "det";
+    const units = R.units, outs = units.flatMap((u, ui) => u.outcomes.map((o) => Object.assign({ ui, useq: u.seq }, o)));
+    const DARK = { name: "1F2937", first: "1E3A8A", second: "0F766E", final: "9A3412", total: "713F12", verbal: "334155", u: ["065F46", "7C2D12", "581C87", "155E75", "9D174D", "3F6212"] };
+    const LIGHT = { name: "FFFFFF", first: "E8EFFF", second: "E0F5F2", final: "FFF1E6", total: "FDF6D8", verbal: "F1F5F9", u: ["E9F7EF", "FDF1E7", "F3EBFB", "E6F6FA", "FCE7F3", "F1F8E4"] };
+    const LV = ["", "FFE4D6", "FDEFC8", "DDE7FD", "D9F2E1"];
+    const border = { top: { style: "thin", color: { rgb: "9CA3AF" } }, bottom: { style: "thin", color: { rgb: "9CA3AF" } }, left: { style: "thin", color: { rgb: "9CA3AF" } }, right: { style: "thin", color: { rgb: "9CA3AF" } } };
+    const hs = (fill, rot) => ({ font: { name: "Amiri", bold: true, sz: rot ? 9 : 12, color: { rgb: "FFFFFF" } }, fill: { patternType: "solid", fgColor: { rgb: fill } }, border,
+      alignment: { horizontal: "center", vertical: "center", wrapText: true, readingOrder: 2, textRotation: rot ? 90 : 0 } });
+    const ds = (fill, bold) => ({ font: { name: "Arial", sz: 11, bold: !!bold, color: { rgb: "111827" } }, fill: { patternType: "solid", fgColor: { rgb: fill } }, border,
+      alignment: { horizontal: "center", vertical: "center", readingOrder: 2 } });
+    const aoa = [], S2 = [], merges = [];
+    const put = (r, col, v, style) => { aoa[r] = aoa[r] || []; aoa[r][col] = v; S2.push([r, col, style]); };
+    const ncols = det ? 3 + outs.length + 4 : 3 + units.length + 1 + 3;
+    put(0, 0, H.title + " — " + H.sub, { font: { name: "Amiri", bold: true, sz: 18, color: { rgb: "0F3D3A" } }, alignment: { horizontal: "center", readingOrder: 2 } });
+    merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: ncols - 1 } });
+    put(1, 0, H.right.concat(H.left).join("   |   "), { font: { name: "Amiri", sz: 12, color: { rgb: "374151" } }, alignment: { horizontal: "center", readingOrder: 2, wrapText: true } });
+    merges.push({ s: { r: 1, c: 0 }, e: { r: 1, c: ncols - 1 } });
+    const r1 = 3, r2 = 4; let col = 0;
+    const span2 = (text, dark) => { put(r1, col, text, hs(dark)); put(r2, col, "", hs(dark)); merges.push({ s: { r: r1, c: col }, e: { r: r2, c: col } }); col++; };
+    span2("م", DARK.name); span2("اسم الطالب", DARK.name); span2("التقويم الأول (" + nf(c.cap1) + ")", DARK.first);
+    if (det) {
+      units.forEach((u, ui) => { if (!u.outcomes.length) return; const start = col;
+        u.outcomes.forEach((o) => { put(r1, col, col === start ? "الوحدة " + u.seq + ": " + u.title : "", hs(DARK.u[ui % 6]));
+          put(r2, col, "ن" + o.seq + " (د" + o.lesson + "): " + o.text, hs(DARK.u[ui % 6], true)); col++; });
+        merges.push({ s: { r: r1, c: start }, e: { r: r1, c: col - 1 } }); });
+      span2("مجموع التقويم الثاني (" + nf(c.cap2) + ")", DARK.second);
+    } else {
+      const start = col;
+      units.forEach((u, ui) => { put(r1, col, col === start ? "التقويم الثاني — النتاجات" : "", hs(DARK.second)); put(r2, col, "الوحدة " + u.seq + ": " + u.title, hs(DARK.u[ui % 6])); col++; });
+      put(r1, col, "", hs(DARK.second)); put(r2, col, "المجموع (" + nf(c.cap2) + ")", hs(DARK.second)); col++;
+      merges.push({ s: { r: r1, c: start }, e: { r: r1, c: col - 1 } });
+    }
+    span2("الاختبار النهائي (" + nf(c.cap3) + ")", DARK.final); span2("المجموع (" + nf(c.max) + ")", DARK.total); span2("التقدير", DARK.verbal);
+    const num = (v) => (v == null || isNaN(v) ? "" : Math.round(v * 100) / 100);
+    rows.forEach((r, i) => {
+      const rr = r2 + 1 + i; let k = 0;
+      put(rr, k++, r.serial, ds(LIGHT.name)); put(rr, k++, r.name, Object.assign(ds(LIGHT.name), { alignment: { horizontal: "right", vertical: "center", readingOrder: 2 } }));
+      put(rr, k++, num(r.first), ds(LIGHT.first));
+      if (det) {
+        outs.forEach((o) => { const L = r.lv[o.id];
+          put(rr, k++, L ? (REC.show === "level" ? L : num(r.w[o.id])) : "", ds(L && REC.show === "level" ? LV[L] : LIGHT.u[o.ui % 6])); });
+      } else r.units.forEach((v, ui) => put(rr, k++, num(v), ds(LIGHT.u[ui % 6])));
+      put(rr, k++, num(r.second), ds(LIGHT.second, true)); put(rr, k++, num(r.fin), ds(LIGHT.final));
+      put(rr, k++, num(r.total), ds(LIGHT.total, true)); put(rr, k++, r.verbal, ds(LIGHT.verbal));
+    });
+    const last = r2 + rows.length + 2;
+    put(last, 0, "معلم المبحث: " + (R.teacher.name || "") + "        مدير المدرسة: ..................        المشرف التربوي: ..................",
+      { font: { name: "Amiri", sz: 12 }, alignment: { horizontal: "center", readingOrder: 2 } });
+    merges.push({ s: { r: last, c: 0 }, e: { r: last, c: ncols - 1 } });
+    for (let r = 0; r <= last; r++) { aoa[r] = aoa[r] || []; for (let k = 0; k < ncols; k++) if (aoa[r][k] === undefined) aoa[r][k] = ""; }
+    const ws = X.utils.aoa_to_sheet(aoa);
+    S2.forEach(([r, k, st]) => { const a = X.utils.encode_cell({ r, c: k }); if (ws[a]) ws[a].s = st; });
+    ws["!merges"] = merges;
+    ws["!cols"] = Array.from({ length: ncols }, (_, k) => ({ wch: k === 0 ? 5 : k === 1 ? 30 : det && k >= 3 && k < 3 + outs.length ? 4.5 : 12 }));
+    ws["!rows"] = []; ws["!rows"][0] = { hpt: 30 }; ws["!rows"][1] = { hpt: 22 }; ws["!rows"][r1] = { hpt: 36 }; ws["!rows"][r2] = { hpt: det ? 190 : 42 };
+    const wb = X.utils.book_new(); wb.Workbook = { Views: [{ RTL: true }] };
+    X.utils.book_append_sheet(wb, ws, det ? "تفصيلي" : "تجميعي");
+    X.writeFile(wb, H.title + " - " + H.sub + " - " + R.section.name.replace(/[\\/:*?"<>|]/g, "-") + ".xlsx");
+    toast("نُزّل ملف Excel");
   }
 
   // ================= التشغيل =================

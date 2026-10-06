@@ -1,0 +1,30 @@
+/* جسر مؤقت: يُلبس لوحة المعلم الحالية ألوان الهوية الجديدة، ويحمي صفحة الدخول من أنماط app.css
+   (يُستبدل بالكامل في مرحلة إعادة تصميم لوحة المعلم) */
+:root[data-skin]{--brand:var(--accent);--brand-2:var(--accent-2);--brand-ink:var(--accent-ink);--brand-soft:var(--accent-soft)}
+:root[data-skin="night"]{
+  --bg:#0e1113; --surface:#171b1e; --surface-2:#1e2326; --line:#2a3034; --ink:#ebe8e1; --ink-2:#a9a8a0; --ink-3:#73766f;
+  --l1:#e48a80; --l1-bg:#2c1716; --l2:#e0b45c; --l2-bg:#2a2214; --l3:#8fb3e0; --l3-bg:#162130; --l4:#86c08f; --l4-bg:#16241a;
+  --ok:#86c08f; --ok-bg:#16241a; --warn:#e0b45c; --warn-bg:#2a2214; --danger:#e48a80; --danger-bg:#2c1716;
+}
+.topbar{background:var(--hero)!important;color:var(--hero-ink)}
+.topbar h1{font-family:var(--f-disp)}
+.bar>i{background:var(--accent)}
+h1,h2,h3{font-family:var(--f-disp)}
+
+#vLogin{min-height:100vh}
+#vLogin .field{display:grid;gap:7px;margin:0}
+#vLogin .field>span{font-size:13.5px;margin:0}
+#vLogin .input{min-height:50px;border:1.5px solid var(--line-2);font-size:16px;padding:0 14px;background:var(--surface)}
+#vLogin .input:focus{border-color:var(--accent);box-shadow:0 0 0 4px var(--accent-soft)}
+#vLogin .nid-wrap .input{font-size:21px;letter-spacing:.14em;text-align:center;padding-inline:48px}
+#vLogin .btn{min-height:44px;padding:0 18px;font-size:15px;gap:8px;border:1px solid transparent}
+#vLogin .btn.lg{min-height:52px;font-size:16px}
+#vLogin .btn.sm{min-height:36px;font-size:13.5px;padding:0 12px}
+#vLogin .btn.outline{border-color:var(--line-2);background:var(--surface);color:var(--ink)}
+#vLogin .btn.ghost{border:0;background:none}
+#vLogin .iconbtn{background:none;color:var(--ink-2)}
+#vLogin .iconbtn:hover{background:var(--surface-2)}
+#vLogin .seg{display:grid;grid-template-columns:1fr 1fr;padding:4px;gap:4px;margin-bottom:20px}
+#vLogin .seg a,#vLogin .seg button{padding:0}
+#vLogin .err{display:flex;gap:8px;align-items:flex-start;margin:0 0 14px}
+#vLogin form{display:grid;gap:16px}

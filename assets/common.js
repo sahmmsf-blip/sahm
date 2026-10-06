@@ -111,6 +111,56 @@
     }).join(",")).join("\r\n");
   }
 
+  // ---------- السمات (لكل دور سمته المحفوظة على الجهاز) ----------
+  const SKINS = {
+    white: { n: "أبيض رسمي", c: ["#ffffff", "#16325a", "#a3742a"], m: "#16325a" },
+    navy:  { n: "كحلي ملكي", c: ["#fffdf8", "#0d2340", "#b3842f"], m: "#0d2340" },
+    olive: { n: "زيتي", c: ["#fffdf6", "#4b5a2a", "#a57a2b"], m: "#3d4a22" },
+    night: { n: "ليلي", c: ["#171b1e", "#b9c37f", "#d2a95b"], m: "#0e1113" }
+  };
+  let ROLE = "student";
+  function applySkin(s) {
+    if (!SKINS[s]) s = "white";
+    document.documentElement.setAttribute("data-skin", s);
+    document.documentElement.setAttribute("data-theme", s === "night" ? "dark" : "light");
+    let m = document.querySelector('meta[name="theme-color"]');
+    if (!m) { m = document.createElement("meta"); m.name = "theme-color"; document.head.appendChild(m); }
+    m.content = SKINS[s].m;
+  }
+  function initSkin(role, def) {
+    ROLE = role; let s = null;
+    try { s = localStorage.getItem("sahm_skin_" + role); } catch (e) {}
+    applySkin(s || def); return s || def;
+  }
+  function skinPicker() {
+    const cur = document.documentElement.getAttribute("data-skin");
+    const b = openSheet('<h3>مظهر المنصة</h3><p class="muted" style="margin-bottom:16px">اختر السمة التي تريحك؛ تُحفظ على هذا الجهاز.</p><div class="skins">' +
+      Object.keys(SKINS).map((k) => `<button class="skin ${k === cur ? "on" : ""}" data-skin="${k}"><span class="sw">${SKINS[k].c.map((c) => `<i style="background:${c}"></i>`).join("")}</span><b>${SKINS[k].n}</b></button>`).join("") +
+      "</div>");
+    b.querySelectorAll("[data-skin]").forEach((x) => (x.onclick = () => {
+      applySkin(x.dataset.skin); try { localStorage.setItem("sahm_skin_" + ROLE, x.dataset.skin); } catch (e) {}
+      b.querySelectorAll(".skin").forEach((y) => y.classList.toggle("on", y === x));
+    }));
+  }
+  function spin(btn, on, label) {
+    if (on) { btn.dataset.l = btn.innerHTML; btn.disabled = true; btn.innerHTML = '<span class="spin"></span>' + (label ? esc(label) : ""); }
+    else { btn.disabled = false; if (btn.dataset.l) btn.innerHTML = btn.dataset.l; }
+  }
+  function greet() {
+    const h = Number(new Intl.DateTimeFormat("en-GB", { timeZone: TZ, hour: "numeric", hour12: false }).format(new Date()));
+    return h < 12 ? "صباح الخير" : "مساء الخير";
+  }
+  function firstName(n) { return String(n || "").trim().split(/\s+/)[0] || ""; }
+  function ago(iso) {
+    const d = (new Date(iso).getTime() - Date.now()) / 1000, a = Math.abs(d);
+    const f = (n, one, two, many) => n === 1 ? one : n === 2 ? two : n + " " + many;
+    let s;
+    if (a < 3600) s = f(Math.max(1, Math.round(a / 60)), "دقيقة", "دقيقتين", "دقيقة");
+    else if (a < 86400) s = f(Math.round(a / 3600), "ساعة", "ساعتين", "ساعات");
+    else s = f(Math.round(a / 86400), "يوم", "يومين", "أيام");
+    return (d > 0 ? "بعد " : "قبل ") + s;
+  }
+
   window.U = { $, esc, L, fmtDT, fmtTime, toLocalInput, fromLocalInput, mmss, digits, toast, openSheet, closeSheet,
-               confirmSheet, rpcFetch, cycleTheme, download, csv };
+               confirmSheet, rpcFetch, cycleTheme, download, csv, SKINS, applySkin, initSkin, skinPicker, spin, greet, firstName, ago, TZ };
 })();

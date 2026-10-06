@@ -1,12 +1,19 @@
 {
-  "name": "منصة السهم — الاختبارات والدفتر",
-  "short_name": "منصة السهم",
-  "start_url": "./teacher.html",
-  "scope": "./",
-  "display": "standalone",
-  "background_color": "#f6f7f9",
-  "theme_color": "#0f766e",
-  "lang": "ar",
-  "dir": "rtl",
-  "icons": [{ "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxOTIgMTkyIj48cmVjdCB3aWR0aD0iMTkyIiBoZWlnaHQ9IjE5MiIgcng9IjQyIiBmaWxsPSIjMGY3NjZlIi8+PHJlY3QgeD0iNDYiIHk9IjQwIiB3aWR0aD0iMTAwIiBoZWlnaHQ9IjExMiIgcng9IjEwIiBmaWxsPSIjZmZmZmZmIi8+PHJlY3QgeD0iNDYiIHk9IjQwIiB3aWR0aD0iMTgiIGhlaWdodD0iMTEyIiByeD0iOSIgZmlsbD0iIzBkOTQ4OCIvPjwvc3ZnPg==", "sizes": "192x192", "type": "image/svg+xml" }]
+ "name": "منصة السهم العلمي للاختبارات الذكية وتقويم الأداء",
+ "short_name": "السهم العلمي",
+ "start_url": "./",
+ "scope": "./",
+ "display": "standalone",
+ "background_color": "#f4f2ea",
+ "theme_color": "#3d4a22",
+ "lang": "ar",
+ "dir": "rtl",
+ "icons": [
+  {
+   "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxOTIgMTkyIj48cmVjdCB3aWR0aD0iMTkyIiBoZWlnaHQ9IjE5MiIgcng9IjQ0IiBmaWxsPSIjNGI1YTJhIi8+PGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTYgMTYpIHNjYWxlKDMuMzMzKSI+PGNpcmNsZSBjeD0iMjAiIGN5PSIyOCIgcj0iMTEiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2ZiZmFmMiIgc3Ryb2tlLXdpZHRoPSIyLjQiIG9wYWNpdHk9Ii41NSIvPjxjaXJjbGUgY3g9IjIwIiBjeT0iMjgiIHI9IjUuNSIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmJmYWYyIiBzdHJva2Utd2lkdGg9IjIuNCIgb3BhY2l0eT0iLjg1Ii8+PGNpcmNsZSBjeD0iMjAiIGN5PSIyOCIgcj0iMi42IiBmaWxsPSIjYTU3YTJiIi8+PHBhdGggZD0iTTIwIDI4IDM2LjUgMTEuNSIgc3Ryb2tlPSIjZmJmYWYyIiBzdHJva2Utd2lkdGg9IjMuMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBmaWxsPSJub25lIi8+PHBhdGggZD0iTTI4LjUgMTAuNWg5djkiIHN0cm9rZT0iI2ZiZmFmMiIgc3Ryb2tlLXdpZHRoPSIzLjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIgZmlsbD0ibm9uZSIvPjwvZz48L3N2Zz4=",
+   "sizes": "any",
+   "type": "image/svg+xml",
+   "purpose": "any"
+  }
+ ]
 }
