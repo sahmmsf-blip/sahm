@@ -2,16 +2,17 @@
 <html lang="ar" dir="rtl" data-skin="white">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#16325a">
-<title>بوابة المعلّم — منصة السهم العلمي للاختبارات الذكية وتقويم الأداء</title>
+<title>منظومة المعلّم — منصة السهم العلمي للاختبارات الذكية وتقويم الأداء</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="assets/icon.svg?v=3.0.0" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Noto+Kufi+Arabic:wght@600;700;800&family=Amiri:wght@400;700&display=swap" rel="stylesheet">
-<link rel="icon" href="assets/icon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="assets/brand.css">
-<link rel="stylesheet" href="assets/app.css">
-<link rel="stylesheet" href="assets/teacher-bridge.css">
+<link rel="stylesheet" href="assets/brand.css?v=3.0.0">
+<link rel="stylesheet" href="assets/teacher.css?v=3.0.0">
 </head>
 <body>
 
@@ -26,8 +27,8 @@
   <section class="hero"><div class="container">
     <div>
       <span class="eyebrow">بوابة المعلّم</span>
-      <h1>لوحة تحكّم <em>المعلّم</em><br>في مكان واحد</h1>
-      <p class="lead">بنك الأسئلة على النتاجات، والاختبارات بالسحب الذكي، والنتائج اللحظية، وسجلات العلامات الجانبية الجاهزة للطباعة.</p>
+      <h1>منظومة <em>المعلّم</em><br>كلها في مكان واحد</h1>
+      <p class="lead">الدفتر الجانبي ومنصة الاختبارات صارا نظامًا واحدًا: الحضور والرصد اليومي، ورصد النتاجات، والعلامات، وبنك الأسئلة، والاختبارات المحصّنة، والسجلات الرسمية الجاهزة للطباعة على A4.</p>
       <div class="trust">
         <div><i data-ic="id"></i>دخول بالرقم الوطني</div>
         <div><i data-ic="lock"></i>كلمة سر مشفّرة</div>
@@ -68,39 +69,50 @@
         <button class="btn primary block lg" id="loginBtn" type="submit">دخول</button>
         <p class="tiny" style="text-align:center"><a href="#" id="toNid">الدخول بالرقم الوطني</a></p>
       </form>
+      <p class="tiny" style="text-align:center;margin-top:14px;color:var(--ink-3)">الإصدار 3.0 — المنظومة الموحّدة</p>
     </div>
   </div></section>
 </div>
 
-<div id="app" class="hide">
-  <header class="topbar"><div class="row">
-    <div class="grow"><h1 id="pgTitle">الرئيسية</h1><div class="sub" id="pgSub"></div></div>
-    <a class="iconbtn" href="book.html" title="الدفتر الجانبي" aria-label="الدفتر الجانبي"><i data-ic="book"></i></a>
-    <button class="iconbtn" id="themeBtn" title="المظهر" aria-label="تغيير المظهر"><i data-ic="palette"></i></button>
-    <button class="iconbtn" id="outBtn" title="خروج" aria-label="خروج"><i data-ic="logout"></i></button>
-  </div></header>
-  <main>
-    <section id="v-home"></section>
-    <section id="v-bank" class="hide"></section>
-    <section id="v-exams" class="hide"></section>
-    <section id="v-results" class="hide"></section>
-    <section id="v-students" class="hide"></section>
-    <section id="v-records" class="hide"></section>
-  </main>
-  <nav class="tabbar six" aria-label="التنقل">
-    <button data-v="home"><span class="ic">🏠</span>الرئيسية</button>
-    <button data-v="bank"><span class="ic">🗂️</span>الأسئلة</button>
-    <button data-v="exams"><span class="ic">📝</span>الاختبارات</button>
-    <button data-v="results"><span class="ic">📊</span>النتائج</button>
-    <button data-v="records"><span class="ic">📒</span>السجلات</button>
-    <button data-v="students"><span class="ic">🪪</span>الطلبة</button>
-  </nav>
+<div id="app" class="shell hide">
+  <aside class="side" id="side" aria-label="القائمة الرئيسية">
+    <a class="brand side-brand" href="#dash"><span data-logo></span><span class="wm"><b>السهم العلمي</b><span>منظومة المعلّم</span></span></a>
+    <nav class="side-nav" id="sideNav"></nav>
+    <div class="side-foot">
+      <div class="me"><span class="avatar" id="meAv">س</span><div class="grow"><b id="meName">—</b><span id="meSchool" class="tiny"></span></div></div>
+      <div class="row" style="gap:6px;margin-top:10px">
+        <button class="btn outline sm grow" id="skinBtn" type="button"><i data-ic="palette" class="sm"></i>المظهر</button>
+        <button class="btn outline sm" id="outBtn" type="button" title="خروج" aria-label="خروج"><i data-ic="logout" class="sm"></i></button>
+      </div>
+    </div>
+  </aside>
+  <div class="scrim side-scrim" id="sideScrim"></div>
+  <div class="main">
+    <header class="tbar">
+      <button class="iconbtn only-sm" id="menuBtn" type="button" aria-label="القائمة"><i data-ic="list"></i></button>
+      <div class="grow tb-title"><h1 id="pgTitle">—</h1><div class="tiny" id="pgSub"></div></div>
+      <label class="secpick" id="secPickWrap" title="الشعبة الحالية"><i data-ic="users" class="sm"></i><select id="secPick" aria-label="الشعبة الحالية"></select></label>
+      <button class="searchbtn" id="searchBtn" type="button" aria-label="بحث"><i data-ic="spark" class="sm"></i><span class="hide-sm">ابحث عن طالب أو نتاج أو اختبار…</span><kbd class="hide-sm">Ctrl K</kbd></button>
+    </header>
+    <main id="view" class="view"></main>
+  </div>
+  <nav class="bnav" id="bNav" aria-label="التنقل السريع"></nav>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-<script src="assets/config.js"></script>
-<script src="assets/icons.js"></script>
-<script src="assets/common.js"></script>
-<script src="assets/teacher.js"></script>
+<script src="assets/config.js?v=3.0.0"></script>
+<script src="assets/icons.js?v=3.0.0"></script>
+<script src="assets/common.js?v=3.0.0"></script>
+<script src="assets/t-core.js?v=3.0.0"></script>
+<script src="assets/t-brain.js?v=3.0.0"></script>
+<script src="assets/t-dash.js?v=3.0.0"></script>
+<script src="assets/t-class.js?v=3.0.0"></script>
+<script src="assets/t-grid.js?v=3.0.0"></script>
+<script src="assets/t-bank.js?v=3.0.0"></script>
+<script src="assets/t-exams.js?v=3.0.0"></script>
+<script src="assets/t-people.js?v=3.0.0"></script>
+<script src="assets/t-records.js?v=3.0.0"></script>
+<script src="assets/t-settings.js?v=3.0.0"></script>
+<script src="assets/t-boot.js?v=3.0.0"></script>
 </body>
 </html>

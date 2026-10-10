@@ -3,7 +3,7 @@
   const { $, esc, L, fmtDT, mmss, digits, toast, openSheet, closeSheet, confirmSheet, rpcFetch, initSkin, skinPicker, spin, greet, firstName, ago } = U;
   const KIND = { quiz: "كويز", first_written: "الاختبار الأول", final_written: "الاختبار النهائي", practice: "تدريبي" };
   const MONTHS = ["كانون الثاني", "شباط", "آذار", "نيسان", "أيار", "حزيران", "تموز", "آب", "أيلول", "تشرين الأول", "تشرين الثاني", "كانون الأول"];
-  const LV = { 1: "بحاجة إلى دعم", 2: "قيد التقدّم", 3: "جيد", 4: "متقن" };
+  const LV = { 1: "مبتدئ", 2: "نامٍ", 3: "متمكّن", 4: "متميّز" };
 
   initSkin("student", "olive");
   let TOKEN = null;
@@ -288,8 +288,9 @@
     clearInterval(X.timer); X.timer = setInterval(tick, 500);
     if (a.fullscreen) enterFs();
     $("xSaved").textContent = "محفوظ";
+    armGuard(a);
   }
-  function stopExam() { clearInterval(X.timer); clearTimeout(X.saveT); X.a = null; }
+  function stopExam() { clearInterval(X.timer); clearTimeout(X.saveT); X.a = null; disarmGuard(); }
   function remaining() { return new Date(X.a.deadline).getTime() - (Date.now() + X.offset); }
   function tick() {
     if (!X.a) return;
@@ -366,19 +367,97 @@
     showResult(r, title, auto);
   }
 
-  // ===================== ملء الشاشة =====================
+  // ===================== الحماية من الغش =====================
+  const GD = { on: false, meta: null, last: {}, hiddenAt: 0, warnT: null, w0: 0 };
+  const GMSG = { blur: "غادرت نافذة الاختبار", hidden: "خرجت إلى تطبيق أو تبويب آخر", fs_exit: "خرجت من وضع ملء الشاشة", copy: "النسخ ممنوع أثناء الاختبار",
+    paste: "اللصق ممنوع أثناء الاختبار", print: "الطباعة ممنوعة أثناء الاختبار", screenshot: "رُصد زر لقطة الشاشة", devtools: "رُصد فتح أدوات المطوّر", context: "القائمة ممنوعة", shortcut: "هذا الاختصار ممنوع" };
+  async function armGuard(a) {
+    GD.on = false; GD.meta = null; GD.last = {}; GD.w0 = window.innerWidth;
+    let m; try { m = await call("student_exam_meta", { p_attempt: a.attempt }); } catch (e) { return; }
+    if (!m || !m.ok || !X.a) return;
+    GD.meta = m; GD.on = !!m.strict;
+    const wm = $("wmark");
+    if (GD.on) {
+      const txt = esc(m.name + " · " + (m.nid_tail ? "****" + m.nid_tail : "") + " · " + new Date().toLocaleDateString("ar-JO-u-nu-latn"));
+      wm.innerHTML = Array.from({ length: 36 }, () => `<span>${txt}</span>`).join(""); wm.classList.remove("hide");
+      document.body.classList.add("guarded");
+      $("gBar").classList.remove("hide"); gBar();
+      if (!a.answers || !Object.keys(a.answers).length) showRules(m);
+    }
+  }
+  function disarmGuard() { GD.on = false; $("wmark").classList.add("hide"); $("wmark").innerHTML = ""; $("gBar").classList.add("hide"); document.body.classList.remove("guarded", "veiled"); }
+  function gBar() {
+    const m = GD.meta; if (!m) return;
+    $("gBar").innerHTML = `${ic("shield", "sm")}<span>اختبار محمي — كل خروج أو نسخ أو لقطة شاشة يُسجَّل للمعلّم${m.max ? ` · المخالفات <b>${m.violations || 0}/${m.max}</b> (عند ${m.max} يُسلَّم تلقائيًّا)` : m.violations ? ` · مخالفات مسجّلة: <b>${m.violations}</b>` : ""}</span>`;
+  }
+  function showRules(m) {
+    openSheet(`<h3>${ic("shield")} قبل أن تبدأ</h3><ul style="margin:0 0 14px;padding-inline-start:20px;line-height:2;font-size:14.5px">
+      <li>ابقَ في صفحة الاختبار؛ الخروج إلى أي تطبيق أو تبويب يُسجَّل مخالفة.</li><li>النسخ واللصق والطباعة والقائمة اليمنى معطّلة.</li>
+      <li>زر لقطة الشاشة يُرصد، واسمك مطبوع على الأسئلة؛ أي صورة مسرّبة تُكشف.</li><li>الوقت يحسبه الخادم، ويُسلَّم اختبارك تلقائيًّا عند انتهائه.</li>
+      ${m.max ? `<li><b>عند ${m.max} مخالفات يُغلق اختبارك ويُسلَّم كما هو.</b></li>` : ""}<li>إجاباتك تُحفظ تلقائيًّا حتى لو انقطع الإنترنت.</li></ul>
+      <button class="btn primary block lg" id="ruOk">فهمت، ابدأ</button>`);
+    const b = document.getElementById("ruOk"); if (b) b.onclick = () => { closeSheet(); if (X.a && X.a.fullscreen) enterFs(); };
+  }
+  async function flag(kind, detail) {
+    if (!X.a || X.submitting) return;
+    if (!GD.on && kind !== "fs_exit") return;
+    const now = Date.now(); if (GD.last[kind] && now - GD.last[kind] < 2500) return; GD.last[kind] = now;
+    warn(GMSG[kind] || "مخالفة");
+    let r; try { r = await call("student_flag", { p_attempt: X.a.attempt, p_kind: kind, p_detail: detail || null }); } catch (e) { return; }
+    if (!r) return;
+    if (GD.meta && r.violations != null) { GD.meta.violations = r.violations; gBar(); }
+    if (r.closed && X.a && !X.submitting) {
+      const title = X.a.title; try { localStorage.removeItem(lsKey()); } catch (e) {}
+      X.submitting = true; stopExam(); exitFs(); closeSheet();
+      showResult({ ok: false, error: "أُغلق اختبارك وسُلِّمت إجاباتك تلقائيًّا لتجاوز حد المخالفات المسموح به. أُبلغ المعلّم." }, title, true);
+    }
+  }
+  function warn(msg) {
+    const w = $("gWarn"); w.innerHTML = ic("alert") + "<b>" + esc(msg) + "</b><span>سُجّلت للمعلّم</span>"; w.classList.add("on");
+    clearTimeout(GD.warnT); GD.warnT = setTimeout(() => w.classList.remove("on"), 3200);
+  }
+  // ملء الشاشة
   function enterFs() { const el = document.documentElement; if (el.requestFullscreen) el.requestFullscreen().catch(() => {}); }
   function exitFs() { $("fsLock").classList.add("hide"); if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {}); }
   document.addEventListener("fullscreenchange", () => {
-    if (X.a && X.a.fullscreen && !document.fullscreenElement && !X.submitting) { X.fsExits++; $("fsLock").classList.remove("hide"); }
-  });
-  document.addEventListener("visibilitychange", () => {
-    if (X.a && X.a.fullscreen && document.hidden && !X.submitting) X.fsExits++;
-    if (X.a && !document.hidden) save();
+    if (X.a && X.a.fullscreen && !document.fullscreenElement && !X.submitting) { X.fsExits++; $("fsLock").classList.remove("hide"); flag("fs_exit"); }
   });
   $("fsBack").onclick = () => { enterFs(); $("fsLock").classList.add("hide"); };
-  document.addEventListener("contextmenu", (e) => { if (X.a) e.preventDefault(); });
-  document.addEventListener("copy", (e) => { if (X.a) e.preventDefault(); });
+  // الخروج من الصفحة/التطبيق
+  document.addEventListener("visibilitychange", () => {
+    if (!X.a) return;
+    if (document.hidden) { GD.hiddenAt = Date.now(); if (X.a.fullscreen) X.fsExits++; document.body.classList.add("veiled"); }
+    else { document.body.classList.remove("veiled"); if (GD.hiddenAt) { const sec = Math.round((Date.now() - GD.hiddenAt) / 1000); GD.hiddenAt = 0; flag("hidden", "مدة الغياب " + sec + " ثانية"); } save(); }
+  });
+  window.addEventListener("blur", () => { if (!X.a || !GD.on) return; document.body.classList.add("veiled");
+    setTimeout(() => { if (X.a && !document.hidden && !document.hasFocus()) flag("blur"); }, 400); });
+  window.addEventListener("focus", () => document.body.classList.remove("veiled"));
+  // النسخ واللصق والقائمة والسحب والطباعة
+  ["copy", "cut"].forEach((ev) => document.addEventListener(ev, (e) => { if (X.a) { e.preventDefault(); flag("copy"); } }));
+  document.addEventListener("paste", (e) => { if (X.a) { e.preventDefault(); flag("paste"); } });
+  document.addEventListener("contextmenu", (e) => { if (X.a) { e.preventDefault(); flag("context"); } });
+  document.addEventListener("dragstart", (e) => { if (X.a) e.preventDefault(); });
+  document.addEventListener("selectstart", (e) => { if (X.a && GD.on) e.preventDefault(); });
+  window.addEventListener("beforeprint", () => { if (X.a) flag("print"); });
+  // اختصارات لوحة المفاتيح ولقطة الشاشة وأدوات المطوّر
+  document.addEventListener("keydown", (e) => {
+    if (!X.a || !GD.on) return;
+    const k = (e.key || "").toLowerCase(), mod = e.ctrlKey || e.metaKey;
+    if (k === "printscreen") { flag("screenshot"); return; }
+    if (k === "f12" || (mod && e.shiftKey && ["i", "j", "c", "s"].includes(k))) { e.preventDefault(); flag("devtools"); return; }
+    if (mod && ["c", "x", "v", "a", "p", "s", "u"].includes(k)) { e.preventDefault(); flag(k === "p" ? "print" : k === "v" ? "paste" : k === "c" || k === "x" ? "copy" : "shortcut"); }
+    if (e.metaKey && e.shiftKey && ["3", "4", "5"].includes(k)) flag("screenshot");
+  }, true);
+  document.addEventListener("keyup", (e) => {
+    if (!X.a || !GD.on) return;
+    if ((e.key || "").toLowerCase() === "printscreen") { try { navigator.clipboard.writeText(" "); } catch (x) {} document.body.classList.add("veiled"); setTimeout(() => document.body.classList.remove("veiled"), 1200); flag("screenshot"); }
+  }, true);
+  window.addEventListener("resize", () => {
+    if (!X.a || !GD.on) return;
+    if (window.outerWidth - window.innerWidth > 200 || window.outerHeight - window.innerHeight > 260) flag("devtools", "فرق أبعاد النافذة");
+    else if (GD.w0 && window.innerWidth < GD.w0 * 0.7) flag("resize", "عرض " + window.innerWidth + " من " + GD.w0);
+  });
+  window.addEventListener("offline", () => { if (X.a) warn("انقطع الإنترنت — إجاباتك محفوظة على الجهاز"); });
   window.addEventListener("beforeunload", (e) => { if (X.a && !X.submitting) { save(); e.preventDefault(); e.returnValue = ""; } });
 
   // ===================== النتيجة =====================

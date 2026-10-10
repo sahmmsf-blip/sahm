@@ -346,3 +346,19 @@ select.input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}.reveal{opacity:1;transform:none}}
 @media (max-width:960px){.hero .portal{order:-1}.hero h1{font-size:28px;margin:10px 0 12px}}
 @media (max-width:600px){.site-nav .brand .wm span{display:none}.site-nav .container{height:62px}}
+
+/* ---------- حماية الاختبار ---------- */
+.gbar{display:flex;align-items:center;gap:8px;justify-content:center;font-size:12.5px;font-weight:600;color:var(--gold);background:var(--gold-soft);padding:6px 12px;text-align:center}
+.gbar .ic{flex:none}
+.wmark{position:fixed;inset:0;z-index:40;pointer-events:none;display:flex;flex-wrap:wrap;align-content:space-around;justify-content:space-around;gap:40px 60px;
+  transform:rotate(-24deg) scale(1.4);opacity:.075;overflow:hidden;user-select:none}
+.wmark span{font-family:var(--f-disp);font-weight:800;font-size:17px;color:var(--ink);white-space:nowrap}
+.gwarn{position:fixed;z-index:120;top:16px;left:50%;transform:translate(-50%,-140%);transition:transform .25s cubic-bezier(.2,.8,.2,1);background:var(--danger);color:#fff;
+  border-radius:14px;padding:12px 18px;display:flex;align-items:center;gap:10px;box-shadow:var(--sh-lg);max-width:92vw}
+.gwarn.on{transform:translate(-50%,0)}
+.gwarn span{font-size:12.5px;opacity:.85}
+body.guarded #vExam{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+body.guarded.veiled #vExam .exam-main{filter:blur(14px);transition:filter .1s}
+@media print{body.guarded *{visibility:hidden!important}body.guarded::after{content:"الطباعة ممنوعة أثناء الاختبار";visibility:visible;position:fixed;inset:0;display:grid;place-items:center;font-size:28px}}
+.sheet{visibility:hidden;transition:transform .28s cubic-bezier(.2,.8,.2,1),opacity .2s,visibility 0s linear .3s}
+.sheet.on{visibility:visible;transition-delay:0s}
