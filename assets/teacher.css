@@ -261,3 +261,15 @@ td.lv3{background:var(--l3-bg);color:var(--l3);font-weight:700}td.lv4{background
 .note.ok{background:var(--ok-bg);color:var(--ok)}
 @media (max-width:860px){.hide-sm{display:none!important}}
 .ring b{display:block}
+
+/* ===== الأدوات الورقية: شبكة الرصد السريع ===== */
+.pgrid td, .pgrid th { padding: 4px 3px; }
+.pc { min-width: 40px; height: 32px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); font: inherit; font-weight: 700; cursor: pointer; color: var(--ink); }
+.pc:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.pc.ok { background: #e7f4ea; border-color: #9fd0aa; color: #1d6b33; }
+.pc.bad { background: #fbe9e9; border-color: #efb4b4; color: #a12a2a; }
+.tierchip { display: inline-flex; gap: 4px; align-items: center; font-size: 12px; }
+.dgroups { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.dgroups .card h4 { margin: 0 0 6px; font-family: var(--f-disp); }
+.qstem-pre, .opt-pre { white-space: pre-line; }
+.qitem li{white-space:pre-line}

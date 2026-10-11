@@ -159,8 +159,8 @@
       const oset = new Set(outs.map((o) => o.id));
       studs.forEach((s) => S.mastery.filter((m) => m.student_id === s.id && oset.has(m.outcome_id) && inRange(m.assessed_on)).sort((a, b) => a.assessed_on.localeCompare(b.assessed_on)).forEach((m) => {
         const o = S.O[m.outcome_id], t = S.tools.find((x) => x.code === m.tool_code) || {};
-        M.rows.push([cell(s.serial_no), cell(s.full_name), cell(o.label + " — " + o.text, LIGHT.info, { wrap: true }), cell(t.name || m.tool_code, LIGHT.first), cell(t.strategy || "", LIGHT.first),
-          cell(m.level, LVF[m.level], { color: LVC[m.level], b: true }), cell(T.LV[m.level], LVF[m.level]), cell(T.fmtD(m.assessed_on), LIGHT.final), cell(m.source === "exam" ? "اختبار إلكتروني" : "يدوي", LIGHT.verbal)]);
+        M.rows.push([cell(s.serial_no), cell(s.full_name), cell(o.label + " — " + o.text, LIGHT.info, { wrap: true }), cell(m.exam_id && m.note ? m.note.split(" — ")[0] + " (" + (t.name || "") + ")" : (t.name || m.tool_code) + (T.toolSeq(secId, m.tool_code, m.assessed_on) ? " " + T.toolSeq(secId, m.tool_code, m.assessed_on) : ""), LIGHT.first), cell(t.strategy || "", LIGHT.first),
+          cell(m.level, LVF[m.level], { color: LVC[m.level], b: true }), cell(T.LV[m.level], LVF[m.level]), cell(T.fmtD(m.assessed_on), LIGHT.final), cell(m.source === "exam" ? "من المنصة" : "يدوي", LIGHT.verbal)]);
       }));
       M.note = "يبيّن هذا السجل النتاج المقيس، والأداة، والاستراتيجية، وتاريخ القياس — تنفيذًا للمادة (4)-ب من أسس النجاح والرسوب: «يحتفظ المعلم بسجل خاص تُدوَّن فيه ملحوظاته وتقويمات أداء الطالب… ويُعدّ هذا السجل سجلًا رسميًا يتابعه مدير المدرسة والمشرف التربوي».";
     } else if (kind === "verbal") {
@@ -316,7 +316,7 @@
       r.outs.map((o) => { const L = r.lv[o.id]; return `<tr><td class="wrap" style="max-width:none">${esc(o.label + " — " + o.text)}</td><td style="background:${L ? hex(LVF[L]) : "#fff"};color:${L ? hex(LVC[L]) : "#9ca3af"};font-weight:700">${L ? L + " · " + T.LV[L] : "—"}</td></tr>`; }).join("") +
       `</tbody></table></div>
       <div class="blk"><h4>الحضور والانضباط</h4><div class="kv"><div>حاضر<b>${k.present}</b></div><div>غائب<b>${k.absent}</b></div><div>متأخر<b>${k.late}</b></div><div>بعذر<b>${k.excused}</b></div></div></div>
-      ${at.length ? `<div class="blk"><h4>الاختبارات الإلكترونية</h4>${at.map((a) => { const e = S.exams.find((x) => x.id === a.exam_id) || {}; return `<div style="font-size:12px;display:flex;justify-content:space-between;border-bottom:1px solid #e5e7eb;padding:3px 0"><span>${esc(e.title || "")}</span><b>${a.score != null ? a.score + "/" + a.total : "—"}</b></div>`; }).join("")}</div>` : ""}
+      ${at.length ? `<div class="blk"><h4>الكويزات والاختبارات وأوراق العمل</h4>${at.map((a) => { const e = S.exams.find((x) => x.id === a.exam_id) || {}; return `<div style="font-size:12px;display:flex;justify-content:space-between;border-bottom:1px solid #e5e7eb;padding:3px 0"><span>${esc(T.exTitle(e))}</span><b>${a.score != null ? a.score + "/" + a.total : "—"}</b></div>`; }).join("")}</div>` : ""}
       ${rk.why.length ? `<div class="blk"><h4>ملاحظات للمتابعة</h4><ul style="margin:0;font-size:12px">${rk.why.map((w) => `<li>${esc(w)}</li>`).join("")}</ul></div>` : ""}
       <div class="blk"><h4>ملاحظات المعلّم</h4><div style="height:60px;border-bottom:1px dotted #94a3b8"></div><div style="height:30px;border-bottom:1px dotted #94a3b8"></div></div>
       <div class="rs"><span>معلم المبحث: ${esc(S.me.full_name || "")}</span><span>مدير المدرسة: ..........</span><span>وليّ الأمر: ..........</span></div></div>`;

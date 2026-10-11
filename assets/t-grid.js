@@ -80,7 +80,7 @@
         <span class="tiny">الأداة: ${esc(T.toolName(G.tool))} · ${esc(T.fmtD(G.date))} (غيّرهما من أعلى الجدول)</span></div>
       <div class="levels">${[1, 2, 3, 4].map((k) => `<button class="lvbtn" data-l="${k}" ${cur && cur.level === k ? 'aria-pressed="true"' : ""}><b>${k}</b><span><i>${T.LV[k]}</i><s>${T.LVD[k]}</s></span><span class="tiny">${k * 25}٪</span></button>`).join("")}</div>
       ${hist.length ? `<div class="lbl" style="margin-top:16px">سجل القياسات (${hist.length})</div><div class="hist">` + hist.map((m) => `<div class="h"><span class="lv lv${m.level}">${m.level} · ${T.LV[m.level]}</span>
-          <span class="grow">${esc(T.toolName(m.tool_code))} · ${esc(T.fmtD(m.assessed_on))}${m.source === "exam" ? ' · <span class="pill gold">اختبار إلكتروني</span>' : ""}</span>
+          <span class="grow">${esc(T.toolName(m.tool_code))}${(() => { const n = m.exam_id ? null : T.toolSeq(st.section_id, m.tool_code, m.assessed_on); return n ? " (" + n + ")" : ""; })()} · ${esc(T.fmtD(m.assessed_on))}${m.source === "exam" ? ' · <span class="pill gold">من المنصة</span>' : ""}${m.note ? `<br><span class="tiny">${esc(m.note)}</span>` : ""}</span>
           ${m.source === "exam" ? "" : `<button class="btn sm ghost" data-del="${m.id}">حذف</button>`}</div>`).join("") + "</div>" : ""}`);
     b.querySelectorAll(".lvbtn").forEach((x) => (x.onclick = () => { closeSheet(); saveLevel(sid, oid, +x.dataset.l); }));
     b.querySelectorAll("[data-del]").forEach((x) => (x.onclick = async () => {
@@ -103,6 +103,17 @@
     }));
   }
 
+  // تفصيل علامة التقويم الثاني لطالب: كل نتاج ومستواه وحصّته والأداة التي أعطته المستوى
+  function whySheet(st) {
+    const r = B().calc(st), c = B().caps();
+    const rows = r.outs.filter((o) => r.lv[o.id]).map((o) => { const e = B().effOf(st.id, o.id) || {};
+      return `<tr><td><span class="lbl-chip">${esc(o.short)}</span> <span class="tiny">${esc(o.text)}</span></td><td class="num lv${r.lv[o.id]}">${r.lv[o.id]} · ${T.LV[r.lv[o.id]]}</td>
+        <td class="num">${T.nf(r.w[o.id])}</td><td class="tiny">${esc(e.note || T.toolName(e.tool_code))}</td></tr>`; }).join("");
+    openSheet(`<h3>تفصيل التقويم الثاني — ${esc(st.full_name)}</h3>
+      <div class="note">قيس <b>${r.N}</b> نتاجًا من ${r.nOut}. متوسط المستويات <b>${T.nf(r.avgLv, 2)}</b> من ٤ ← ${T.nf(r.avgLv, 2)} ÷ ٤ × ${T.nf(c.cap2)} = <b>${T.nf(r.second)}</b> من ${T.nf(c.cap2)}.</div>
+      ${r.N ? `<div class="tw" style="margin-top:10px"><table class="t"><thead><tr><th>النتاج</th><th class="num">المستوى المعتمد</th><th class="num">حصّته</th><th>المصدر</th></tr></thead><tbody>${rows}</tbody></table></div>` : T.empty("target", "لم يُقس أي نتاج بعد")}`);
+  }
+
   // ================= العلامات =================
   T.view("marks", {
     title: "العلامات", secAware: true, sub: () => "الاختبار الأول والنهائي — والتقويم الثاني يُحسب تلقائيًّا من النتاجات",
@@ -119,12 +130,20 @@
           return `<tr data-s="${s.id}"><td class="num">${s.serial_no}</td><td><a href="#student/${s.id}" style="color:inherit;font-weight:600">${esc(s.full_name)}</a></td>
             <td class="num"><input class="input mono m1" inputmode="decimal" value="${f.mark != null ? f.mark : ""}" style="width:84px;text-align:center"></td>
             <td class="num"><input type="checkbox" class="a1" ${f.absent_no_excuse ? "checked" : ""} style="width:18px;height:18px;accent-color:var(--danger)"></td>
-            <td class="num"><b>${T.nf(r.second)}</b></td>
+            <td class="num"><button class="btn sm ghost why" data-why="${s.id}" title="كيف حُسبت؟"><b>${T.nf(r.second)}</b></button></td>
             <td class="num"><input class="input mono m3" inputmode="decimal" value="${z.mark != null ? z.mark : ""}" style="width:84px;text-align:center"></td>
             <td class="num"><input type="checkbox" class="a3" ${z.absent_no_excuse ? "checked" : ""} style="width:18px;height:18px;accent-color:var(--danger)"></td>
             <td class="num"><b class="tot">${T.nf(r.total)}</b></td><td class="vb">${esc(r.verbal)}</td></tr>`; }).join("") +
-        `</tbody></table></div><p class="tiny" style="margin-top:10px">«غائب بلا عذر» يُحتسب صفرًا. اترك الخانة فارغة إن لم يُقدَّم الاختبار بعد. علامة الاختبار الأول قد تُكتب تلقائيًّا عند اعتماد اختبار إلكتروني من نوع «الاختبار الأول».</p>`;
+        `</tbody></table></div>
+        <details class="card pad" style="margin-top:12px"><summary style="cursor:pointer;font-weight:700">كيف تُحسب علامة التقويم الثاني من ${T.nf(c.cap2)}؟ (ولماذا لا يهمّ أن يكون الكويز من ٢٠)</summary>
+          <div class="tiny" style="line-height:2;margin-top:8px">التقويم الثاني <b>لا يجمع علامات الأدوات</b>. كل أداة (كويز، ورقة عمل، ملاحظة، أسئلة شفوية، مشروع…) تتحوّل إلى <b>مستوى في كل نتاج تقيسه</b>:
+            النسبة ÷ ١٠٠ × ٤ مقرّبة → ١ مبتدئ، ٢ نامٍ، ٣ متمكّن، ٤ متميّز. لذلك الكويز من ٢٠ أو من ١٠ أو من ٥ سواء: ١٥ من ٢٠ = ٧٥٪ = متمكّن.
+            <br>ثم يُؤخذ لكل نتاج مستوى واحد حسب القاعدة في الإعدادات (<b>${c.rule === "latest" ? "الأحدث" : "الأعلى"}</b>)، وتصبح العلامة:
+            <b>متوسط مستويات النتاجات المقيسة ÷ ٤ × ${T.nf(c.cap2)}</b>. مثال: متوسط ٣ من ٤ → ${T.nf(c.cap2 * 0.75)} من ${T.nf(c.cap2)}.
+            <br>كل نتاج مقيس يأخذ حصة متساوية (${T.nf(c.cap2)} ÷ عدد النتاجات المقيسة)، وتتحدّث العلامة كلما قيس نتاج جديد. انقر علامة أي طالب لترى تفصيلها نتاجًا نتاجًا.</div></details>
+        <p class="tiny" style="margin-top:10px">«غائب بلا عذر» يُحتسب صفرًا. اترك الخانة فارغة إن لم يُقدَّم الاختبار بعد. علامة الاختبار الأول قد تُكتب تلقائيًّا عند اعتماد اختبار إلكتروني من نوع «الاختبار الأول».</p>`;
       el.innerHTML = h;
+      el.querySelectorAll("[data-why]").forEach((bt) => (bt.onclick = () => whySheet(S.stu[bt.dataset.why])));
       const live = (tr) => {
         const s = S.stu[tr.dataset.s], r = B().calc(s);
         const v1 = tr.querySelector(".a1").checked ? 0 : num(tr.querySelector(".m1").value), v3 = tr.querySelector(".a3").checked ? 0 : num(tr.querySelector(".m3").value);

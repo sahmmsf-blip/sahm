@@ -36,7 +36,7 @@
       h += "</div>";
 
       if (open.length) h += `<div class="sect"><h3>${ic("play", "sm")}مفتوح الآن</h3><div class="g2">` + open.map((e) => `<a class="card secard" href="#exam/${e.id}" style="text-decoration:none;color:inherit">
-          <div class="row sp"><b style="font-family:var(--f-disp)">${esc(e.title)}</b><span class="pill open">مفتوح</span></div>
+          <div class="row sp"><b style="font-family:var(--f-disp)">${esc(T.exTitle(e))}</b><span class="pill open">مفتوح</span></div>
           <div class="tiny">سلّم ${e.n_done} من ${e.n_students}${e.n_running ? " · يحلّ الآن " + e.n_running : ""} · يُغلق ${esc(U.ago(e.ends_at))}</div>
           <div class="meter"><i style="width:${e.n_students ? Math.round((e.n_done / e.n_students) * 100) : 0}%"></i></div>
           ${e.mode === "lab" && e.lab_code ? `<div class="row sp"><span class="tiny">رمز الجلسة</span><span class="big-code">${esc(e.lab_code)}</span></div>` : ""}</a>`).join("") + "</div></div>";
@@ -74,7 +74,7 @@
       }).join("") + "</div></div>";
 
       if (soon.length) h += `<div class="sect"><h3>${ic("clock", "sm")}مجدولة</h3><div class="card list">` + soon.slice(0, 5).map((e) => `<a class="li" href="#exam/${e.id}" style="color:inherit;text-decoration:none">
-          <div><b>${esc(e.title)}</b><div class="tiny">${esc(U.fmtDT(e.starts_at))}</div></div><span class="pill scheduled">${esc(U.ago(e.starts_at))}</span></a>`).join("") + "</div></div>";
+          <div><b>${esc(T.exTitle(e))}</b><div class="tiny">${esc(U.fmtDT(e.starts_at))}</div></div><span class="pill scheduled">${esc(U.ago(e.starts_at))}</span></a>`).join("") + "</div></div>";
       h += "</div></div>";
       el.innerHTML = h;
       el.querySelectorAll("[data-sec]").forEach((b) => (b.onclick = () => { S.sec = b.dataset.sec; try { localStorage.setItem("sahm_t_sec", S.sec); } catch (e) {} T.route(); }));

@@ -15,7 +15,7 @@
           <button data-m="ev" aria-pressed="${CS.mode === "ev"}">${ic("bolt", "sm")}الرصد اليومي</button></div></div>
         <div class="toolbar"><input type="date" class="input sm" id="cDate" value="${CS.date}" style="width:auto">
           <select class="input sm" id="cPer" style="width:auto">${T.opt(CS.period, [1, 2, 3, 4, 5, 6, 7].map((n) => [n, "الحصة " + ["الأولى", "الثانية", "الثالثة", "الرابعة", "الخامسة", "السادسة", "السابعة"][n - 1]]))}</select>
-          <button class="btn outline sm" id="cRand">${ic("spark", "sm")}طالب عشوائي</button></div></div>`;
+          <button class="btn outline sm" id="cRand">${ic("spark", "sm")}طالب عشوائي</button><button class="btn outline sm" id="cGroups">${ic("users", "sm")}مجموعات متمايزة</button></div></div>`;
       if (!studs.length) { el.innerHTML = h + T.empty("users", "لا طلبة في هذه الشعبة", "", '<a class="btn primary" href="#people" style="margin-top:12px">أضف الطلبة</a>'); wireTop(el); return; }
       h += CS.mode === "att" ? attHtml(studs) : evHtml(studs);
       el.innerHTML = h; wireTop(el);
@@ -23,7 +23,38 @@
     }
   });
 
+  // ---------- التعليم المتمايز داخل الحصة: ثلاث مجموعات حسب آخر معدل، ولكل مجموعة نشاط من البنك بمستواها ----------
+  async function groupsSheet() {
+    const [tiers] = await Promise.all([T.loadTiers(S.sec, true), T.loadQuestions()]);
+    const studs = T.studentsOf(S.sec), G = { S: [], C: [], E: [] };
+    studs.forEach((s) => G[(tiers[s.id] || {}).tier || "C"].push(s));
+    const lessons = T.semUnits(S.sec).flatMap((u) => u.lessons);
+    const lastL = (() => { const ids = new Set(studs.map((s) => s.id)); const m = S.mastery.filter((x) => ids.has(x.student_id)).sort((a, b) => (b.assessed_on || "").localeCompare(a.assessed_on || ""))[0];
+      return m && S.O[m.outcome_id] ? S.O[m.outcome_id].lesson.id : (lessons[0] || {}).id; })();
+    const MIX = { S: ["سهل", "سهل", "متوسط", "متوسط"], C: ["سهل", "متوسط", "متوسط", "صعب"], E: ["متوسط", "صعب", "صعب", "صعب"] };
+    const pickFor = (lid, t) => { const used = new Set(); return MIX[t].map((d) => { const pool = S.qs.filter((q) => q.active && S.O[q.outcome_id] && S.O[q.outcome_id].lesson.id === lid && q.difficulty === d && !used.has(q.id));
+      const q = pool[Math.floor(Math.random() * pool.length)]; if (q) used.add(q.id); return q; }).filter(Boolean); };
+    const b = U.openSheet(`<h3>مجموعات متمايزة — ${esc(T.sec().name)}</h3>
+      <p class="tiny">المجموعات من آخر معدل لكل طالب (آخر ١٠ تقييمات، الأحدث أثقل) وتتحدّث تلقائيًّا. لكل مجموعة نشاط من بنك الأسئلة بمستواها، يقيس النتاجات نفسها.</p>
+      <label class="field"><span>الدرس</span><select class="input" id="gL">${T.opt(lastL, lessons.map((l) => [l.id, "و" + l.unit.seq + " · الدرس " + l.seq + " · " + l.title]))}</select></label>
+      <div id="gBox" style="margin-top:12px"></div>
+      <div class="foot"><button class="btn primary grow" id="gPrint">${ic("printer", "sm")}طباعة بطاقات المجموعات</button><button class="btn outline" id="gNew">أسئلة أخرى</button></div>`, true);
+    let cur = {};
+    const draw = () => { const lid = b.querySelector("#gL").value; cur = { S: pickFor(lid, "S"), C: pickFor(lid, "C"), E: pickFor(lid, "E") };
+      b.querySelector("#gBox").innerHTML = '<div class="dgroups">' + ["S", "C", "E"].map((t) => `<div class="card pad"><h4>${T.TIER[t].sym} مجموعة ${T.TIER[t].n} <span class="tiny">(${G[t].length})</span></h4>
+        <div class="tiny" style="margin-bottom:6px">${G[t].map((s) => esc(s.full_name.split(" ").slice(0, 2).join(" "))).join("، ") || "—"}</div>
+        <ol class="tiny" style="padding-inline-start:18px;margin:0">${cur[t].map((q) => `<li style="margin-bottom:4px;white-space:pre-line">${esc(q.stem)} <span class="pill">${esc(q.difficulty)}</span></li>`).join("") || "<li>لا أسئلة كافية لهذا الدرس في البنك</li>"}</ol></div>`).join("") + "</div>"; };
+    b.querySelector("#gL").onchange = draw; b.querySelector("#gNew").onclick = draw; draw();
+    b.querySelector("#gPrint").onclick = () => { const L = ["أ", "ب", "ج", "د"], les = S.L[b.querySelector("#gL").value];
+      const html = ["S", "C", "E"].map((t) => `<div class="doc" style="font-family:'IBM Plex Sans Arabic',Arial;font-size:13px"><h2 style="font-family:Amiri,serif;margin:0 0 4px">نشاط المجموعة ${T.TIER[t].sym}</h2>
+        <div style="color:#475569;margin-bottom:8px">${esc(S.subject.name || "")} — ${esc(les ? "الدرس " + les.seq + ": " + les.title : "")} — ${esc(T.sec().name)}</div>
+        <div style="border:1px solid #cbd5e1;border-radius:8px;padding:6px 10px;margin-bottom:10px">أفراد المجموعة: ${G[t].map((s) => esc(s.full_name)).join("، ")}</div>
+        <ol>${cur[t].map((q) => `<li style="margin-bottom:10px;break-inside:avoid"><div style="font-weight:600;white-space:pre-line">${esc(q.stem)}</div>${q.options.map((o, i) => `<div style="white-space:pre-line">${L[i]}) ${esc(o)}</div>`).join("")}</li>`).join("")}</ol></div>`).join("");
+      T.printDoc("مجموعات متمايزة — " + T.sec().name, html, "portrait"); };
+  }
+
   function wireTop(el) {
+    el.querySelector("#cGroups").onclick = () => groupsSheet().catch((e) => toast(e.message, true));
     el.querySelectorAll("#cMode button").forEach((b) => (b.onclick = () => { CS.mode = b.dataset.m; T.route(); }));
     el.querySelector("#cDate").onchange = (e) => { CS.date = e.target.value || T.today(); T.route(); };
     el.querySelector("#cPer").onchange = (e) => { CS.period = +e.target.value; };

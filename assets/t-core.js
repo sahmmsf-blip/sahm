@@ -6,7 +6,11 @@
 
   const LV = ["", "مبتدئ", "نامٍ", "متمكّن", "متميّز"];
   const LVD = ["", "لم يُظهر إتقانًا بعد؛ يحتاج دعمًا مباشرًا", "يقترب من الإتقان بمساعدة", "أتقن النتاج وفق المستوى المطلوب", "أتقن النتاج بمستوى يفوق المطلوب"];
-  const KIND = { quiz: "كويز", first_written: "الاختبار الأول (كتابي)", final_written: "الاختبار النهائي", practice: "تدريبي (لا يُرحَّل)" };
+  const KIND = { quiz: "كويز", worksheet: "ورقة عمل", first_written: "الاختبار الأول (كتابي)", final_written: "الاختبار النهائي", practice: "تدريبي (لا يُرحَّل)" };
+  // مستويات التعليم المتمايز (تُحسب في الخادم من آخر التقييمات) — رموز محايدة على الورق لا تُشعر الطالب بتصنيف
+  const TIER = { S: { n: "دعم", sym: "◆", cls: "bad", d: "أسئلة أسهل أكثر مع سقف عادل (حتى متمكّن)" },
+                 C: { n: "أساسي", sym: "●", cls: "", d: "توزيع الصعوبة كما حدّده المعلم" },
+                 E: { n: "إثراء", sym: "▲", cls: "open", d: "أسئلة أصعب أكثر بعلامة موزونة لا تظلمه" } };
   const STATE = { draft: "مسودة", scheduled: "مجدول", open: "مفتوح الآن", ended: "منتهٍ" };
   const ATT = { present: "حاضر", absent: "غائب", late: "متأخر", excused: "غائب بعذر" };
   const AR_M = ["كانون الثاني", "شباط", "آذار", "نيسان", "أيار", "حزيران", "تموز", "آب", "أيلول", "تشرين الأول", "تشرين الثاني", "كانون الأول"];
@@ -78,12 +82,12 @@
       q(sb.from("units").select("*").order("seq")), q(sb.from("lessons").select("*").order("seq")), all("outcomes", "*", "seq"),
       q(sb.from("tools").select("*").order("sort")), q(sb.from("event_types").select("*").order("sort")),
       all("mastery", "*", "created_at"), all("exam_marks", "*"), all("daily_events", "*", "created_at"), all("attendance", "*"),
-      q(sb.from("exams").select("id,secure_mode,max_violations,mailed_at"))
+      q(sb.from("exams").select("id,secure_mode,max_violations,mailed_at,tool,paper,differentiated,created_at"))
     ]);
     S.me = me; S.subject = boot.subject || {}; S.tools = tools; S.eventTypes = ets.filter((e) => e.is_active !== false);
     S.mastery = mastery; S.marks = marks; S.events = events; S.att = att;
     const extra = {}; exx.forEach((x) => (extra[x.id] = x));
-    S.exams = boot.exams.map((e) => Object.assign({}, e, extra[e.id] || {}));
+    S.exams = boot.exams.map((e) => Object.assign({}, e, extra[e.id] || {})); numberExams();
     S.alertsSrv = boot.alerts || []; S.nq = boot.n_questions;
     const counts = {}; boot.sections.forEach((s) => (counts[s.id] = s));
     S.sections = sections.map((s) => Object.assign({}, s, { n: (counts[s.id] || {}).n || 0, n_cred: (counts[s.id] || {}).n_cred || 0 }));
@@ -112,11 +116,37 @@
     return S.qs;
   }
   async function refreshExams() {
-    const [boot, exx] = await Promise.all([rpc("t_bootstrap"), q(sb.from("exams").select("id,secure_mode,max_violations,mailed_at"))]);
+    const [boot, exx] = await Promise.all([rpc("t_bootstrap"), q(sb.from("exams").select("id,secure_mode,max_violations,mailed_at,tool,paper,differentiated,created_at"))]);
     const extra = {}; exx.forEach((x) => (extra[x.id] = x));
-    S.exams = boot.exams.map((e) => Object.assign({}, e, extra[e.id] || {}));
+    S.exams = boot.exams.map((e) => Object.assign({}, e, extra[e.id] || {})); numberExams();
     S.alertsSrv = boot.alerts || []; S.nq = boot.n_questions;
     boot.units.forEach((u) => u.lessons.forEach((l) => l.outcomes.forEach((o) => { if (S.O[o.id]) S.O[o.id].nq = o.nq; })));
+  }
+
+  // ---------- ترقيم الأدوات تلقائيًّا ----------
+  const CATN = { worksheet: "ورقة العمل", quiz: "الكويز", exam: "الاختبار", practice: "التدريب" };
+  const exCat = (e) => e.cat || (e.tool === "worksheet" ? "worksheet" : e.kind === "quiz" ? "quiz" : /written/.test(e.kind || "") ? "exam" : "practice");
+  function numberExams() {
+    const by = {};
+    S.exams.filter((e) => e.status !== "draft").slice().sort((a, b) => (a.starts_at < b.starts_at ? -1 : a.starts_at > b.starts_at ? 1 : (a.created_at || "") < (b.created_at || "") ? -1 : 1))
+      .forEach((e) => { const c = exCat(e); by[c] = (by[c] || 0) + 1; if (e.no == null) e.no = by[c]; });
+    S.exams.forEach((e) => { e.cat = exCat(e); if (!e.label) e.label = CATN[e.cat] + (e.status === "draft" ? " (مسودة)" : " " + e.no); });
+  }
+  const exTitle = (e) => (e ? (e.label ? e.label + " — " : "") + e.title : "");
+  const exKind = (e) => (e.tool === "worksheet" ? KIND.worksheet : KIND[e.kind] || "") + (e.paper ? " · ورقي" : "") + (e.differentiated ? " · متمايز" : "");
+  // مستويات التمايز لكل شعبة (من الخادم)، تُحدَّث عند الطلب
+  async function loadTiers(secId, force) {
+    S.tiers = S.tiers || {};
+    if (!secId) return {};
+    if (!S.tiers[secId] || force) { try { S.tiers[secId] = (await rpc("t_tiers", { p_section: secId })) || {}; } catch (e) { S.tiers[secId] = {}; } }
+    return S.tiers[secId];
+  }
+  const tierOf = (sid) => { const st = S.stu[sid]; const m = st && S.tiers && S.tiers[st.section_id]; return (m && m[sid]) || null; };
+  // رقم تلقائي لكل استخدام يدوي للأداة في الشعبة (بحسب تواريخ استخدامها): «الملاحظة الصفية (3)»
+  function toolSeq(secId, tool, date) {
+    const ids = new Set(studentsOf(secId, true).map((s) => s.id));
+    const ds = [...new Set(S.mastery.filter((m) => m.tool_code === tool && !m.exam_id && ids.has(m.student_id)).map((m) => m.assessed_on))].sort();
+    const i = ds.indexOf(date); return i < 0 ? null : i + 1;
   }
 
   // ---------- استعلامات مساعدة ----------
@@ -176,11 +206,12 @@
   const NAV = [
     { g: "القيادة" }, { v: "dash", t: "لوحة القيادة", ic: "home" },
     { g: "داخل الصف" }, { v: "class", t: "الحصة الآن", ic: "bolt" }, { v: "grid", t: "رصد النتاجات", ic: "target" }, { v: "marks", t: "العلامات", ic: "award" },
-    { g: "التقويم الإلكتروني" }, { v: "bank", t: "بنك الأسئلة", ic: "layers" }, { v: "exams", t: "الاختبارات", ic: "file" },
+    { g: "أدوات التقويم" }, { v: "bank", t: "بنك الأسئلة", ic: "layers" }, { v: "exams", t: "الاختبارات والكويزات", ic: "file" }, { v: "sheets", t: "أوراق العمل", ic: "book" },
     { g: "الإدارة" }, { v: "people", t: "الطلبة والشعب", ic: "users" }, { v: "records", t: "السجلات والطباعة", ic: "printer" }, { v: "settings", t: "الإعدادات", ic: "key" }
   ];
   const BNAV = [["dash", "home", "القيادة"], ["class", "bolt", "الحصة"], ["grid", "target", "النتاجات"], ["exams", "file", "الاختبارات"], ["_more", "list", "المزيد"]];
   const ALIAS = { exam: "exams", student: "people" };
+  const aliasOf = (v, arg) => (v === "exam" && arg && (S.exams.find((e) => e.id === arg) || {}).cat === "worksheet" ? "sheets" : ALIAS[v] || v);
 
   function buildShell() {
     $("sideNav").innerHTML = NAV.map((n) => n.g ? `<div class="grp">${esc(n.g)}</div>` :
@@ -210,7 +241,7 @@
     S.timers.forEach(clearInterval); S.timers = [];
     let [v, arg] = (location.hash || "#dash").slice(1).split("/");
     if (!S.views[v]) v = "dash";
-    const def = S.views[v], navKey = ALIAS[v] || v;
+    const def = S.views[v], navKey = aliasOf(v, arg);
     S.cur = v;
     document.querySelectorAll(".side-nav a").forEach((a) => a.classList.toggle("on", a.dataset.v === navKey));
     document.querySelectorAll(".bnav a").forEach((a) => a.classList.toggle("on", a.dataset.v === navKey));
@@ -245,7 +276,7 @@
           .map((x) => ({ g: "الطلبة", t: x.full_name, k: secName(x.section_id) + (x.is_active ? "" : " · مؤرشف"), ic: "user", h: "#student/" + x.id }));
         oc = Object.values(S.O).filter((o) => norm(o.text).includes(s) || norm(o.label).includes(s)).slice(0, 6)
           .map((o) => ({ g: "النتاجات", t: o.label + " — " + o.text, k: "رصد", ic: "target", h: "#grid/" + o.lesson.id }));
-        ex = S.exams.filter((e) => norm(e.title).includes(s)).slice(0, 5).map((e) => ({ g: "الاختبارات", t: e.title, k: STATE[e.state], ic: "file", h: "#exam/" + e.id }));
+        ex = S.exams.filter((e) => norm(exTitle(e)).includes(s)).slice(0, 5).map((e) => ({ g: "أدوات التقويم", t: exTitle(e), k: STATE[e.state], ic: "file", h: "#exam/" + e.id }));
       }
       items = st.concat(oc, ex, pages.slice(0, s ? 4 : 11)); idx = 0;
       let g = "";
@@ -327,7 +358,7 @@
     });
   }
 
-  window.T = { sb, S, LV, LVD, KIND, STATE, ATT, AR_M, rpc, q, all, guard, today, fmtD, nf, opt, empty, parseTSV, parseDate, loadScript, XLSX_URL,
+  window.T = { sb, S, LV, LVD, KIND, TIER, CATN, exTitle, exKind, numberExams, loadTiers, tierOf, toolSeq, STATE, ATT, AR_M, rpc, q, all, guard, today, fmtD, nf, opt, empty, parseTSV, parseDate, loadScript, XLSX_URL,
     loadAll, loadQuestions, refreshExams, sec, secName, studentsOf, semUnits, outcomesOfUnits, toolName, W,
     buildShell, fillShell, view, route, go, every, wireLogin, openSearch, NAV };
 })();

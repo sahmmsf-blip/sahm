@@ -131,7 +131,7 @@
       let pos = 0, neg = 0; evs.forEach((e) => { const t = S.eventTypes.find((x) => x.id === e.event_type_id); if (t) t.direction > 0 ? pos++ : neg++; });
       const pct = r.total != null ? Math.round((r.total / c.max) * 100) : 0;
       let h = `<div class="card pad"><div class="prof-head"><span class="avatar">${esc(U.firstName(st.full_name).slice(0, 1))}</span>
-          <div class="grow"><h2 style="font-size:21px">${esc(st.full_name)}</h2><div class="tiny">${esc(sec.name || "")} · الرقم التسلسلي ${st.serial_no} · ${st.national_id && st.birth_date ? '<span class="pill open">جاهز لدخول المنصة</span>' : '<span class="pill bad">بيانات الدخول ناقصة</span>'}${st.is_active ? "" : ' · <span class="pill draft">مؤرشف</span>'}</div></div>
+          <div class="grow"><h2 style="font-size:21px">${esc(st.full_name)}</h2><div class="tiny">${esc(sec.name || "")} · الرقم التسلسلي ${st.serial_no} · ${st.national_id && st.birth_date ? '<span class="pill open">جاهز لدخول المنصة</span>' : '<span class="pill bad">بيانات الدخول ناقصة</span>'}${st.is_active ? "" : ' · <span class="pill draft">مؤرشف</span>'} · <span id="sTier" class="tiny"></span></div></div>
           <div class="ring" style="--p:${pct}"><div><div><b class="num">${T.nf(r.total, 1)}</b><span class="tiny">من ${T.nf(c.max)}</span></div></div></div>
           <div class="toolbar"><button class="btn primary" id="sRep">${ic("printer", "sm")}تقرير الطالب</button><a class="btn outline" href="#people">الشعبة</a></div></div></div>
         <div class="kpi-row" style="margin-top:14px">
@@ -146,7 +146,7 @@
           T.outcomesOfUnits([u]).map((o) => { const e = B().effOf(id, o.id);
             return `<div class="oc"><span class="lbl-chip">${esc(o.short)}</span><span>${esc(o.text)}${e ? `<span class="tiny" style="display:block">${esc(T.toolName(e.tool_code))} · ${esc(T.fmtD(e.assessed_on))}${e.source === "exam" ? " · اختبار إلكتروني" : ""}</span>` : ""}</span>
               <span class="lv lv${e ? e.level : 0}">${e ? e.level + " · " + T.LV[e.level] : "لم يُقَس"}</span></div>`; }).join("") + "</details>").join("") +
-        `</div><div class="sect"><h3>${ic("file", "sm")}الاختبارات الإلكترونية</h3><div id="sAtt">${'<div class="card pad tiny">جارٍ التحميل…</div>'}</div></div></div><div>
+        `</div><div class="sect"><h3>${ic("file", "sm")}الكويزات والاختبارات وأوراق العمل</h3><div id="sAtt">${'<div class="card pad tiny">جارٍ التحميل…</div>'}</div></div></div><div>
           <div class="card pad"><h3 style="font-size:15px;margin-bottom:10px">${ic("cal", "sm")} الحضور</h3><div class="stats-inline"><span>حاضر <b>${cnt.present}</b></span><span>غائب <b style="color:var(--danger)">${cnt.absent}</b></span><span>متأخر <b>${cnt.late}</b></span><span>بعذر <b>${cnt.excused}</b></span></div>
             ${att.filter((a) => a.status !== "present").slice(0, 8).map((a) => `<div class="tiny" style="margin-top:6px">${esc(T.fmtD(a.on_date))} — ${T.ATT[a.status]}</div>`).join("")}</div>
           <div class="card pad" style="margin-top:12px"><h3 style="font-size:15px;margin-bottom:10px">${ic("bolt", "sm")} الرصد اليومي</h3><div class="stats-inline"><span>إيجابي <b style="color:var(--ok)">${pos}</b></span><span>سلبي <b style="color:var(--danger)">${neg}</b></span></div>
@@ -156,11 +156,13 @@
         </div></div>`;
       el.innerHTML = h;
       el.querySelector("#sRep").onclick = () => T.records.studentReport(st);
+      T.loadTiers(st.section_id).then((m) => { const t = m[id], box = el.querySelector("#sTier"); if (!t || !box) return; const d = T.TIER[t.tier];
+        box.innerHTML = `<span class="pill ${d.cls}" title="${esc(d.d)}">${d.sym} مستوى التمايز: ${d.n}</span> آخر معدل ${T.nf(t.avg, 1)}٪ من ${t.n} تقييمات`; });
       try {
         const at = await T.q(T.sb.from("attempts").select("id,exam_id,score,total,status,submitted_at,started_at,violations,closed_by_guard").eq("student_id", id).order("started_at", { ascending: false }));
         const box = el.querySelector("#sAtt"); if (!box) return;
         box.innerHTML = at.length ? '<div class="card list">' + at.map((a) => { const e = S.exams.find((x) => x.id === a.exam_id) || {}, p = a.total ? Math.round((a.score / a.total) * 100) : null;
-          return `<a class="li" href="#exam/${a.exam_id}" style="color:inherit;text-decoration:none"><div><b>${esc(e.title || "اختبار")}</b><div class="tiny">${esc(U.fmtDT(a.submitted_at || a.started_at, false))}${a.violations ? ` · <span style="color:var(--danger)">${a.violations} مخالفة</span>` : ""}${a.closed_by_guard ? " · أُغلق تلقائيًّا" : ""}</div></div>
+          return `<a class="li" href="#exam/${a.exam_id}" style="color:inherit;text-decoration:none"><div><b>${esc(T.exTitle(e) || "اختبار")}</b><div class="tiny">${esc(T.exKind(e))} · ${esc(U.fmtDT(a.submitted_at || a.started_at, false))}${e.paper && a.status === "in_progress" ? " · لم تُرصد بعد" : ""}${a.violations ? ` · <span style="color:var(--danger)">${a.violations} مخالفة</span>` : ""}${a.closed_by_guard ? " · أُغلق تلقائيًّا" : ""}</div></div>
             <span class="score num">${p != null ? a.score + "/" + a.total : "—"}</span></a>`; }).join("") + "</div>" : '<div class="card pad tiny">لم يقدّم أي اختبار إلكتروني بعد.</div>';
       } catch (e) { /* اختياري */ }
     }

@@ -1,7 +1,9 @@
 // صفحة الطالب: موقع + دخول + لوحة مقسّمة إلى أقسام + أداء الاختبار + النتيجة
 (function () {
   const { $, esc, L, fmtDT, mmss, digits, toast, openSheet, closeSheet, confirmSheet, rpcFetch, initSkin, skinPicker, spin, greet, firstName, ago } = U;
-  const KIND = { quiz: "كويز", first_written: "الاختبار الأول", final_written: "الاختبار النهائي", practice: "تدريبي" };
+  const KIND0 = { quiz: "كويز", first_written: "الاختبار الأول", final_written: "الاختبار النهائي", practice: "تدريبي" };
+  const KIND = new Proxy({}, { get: (_, k) => KIND0[k] || "" });
+  const kindOf = (x) => (x.cat === "worksheet" ? "ورقة عمل" : KIND0[x.kind] || "") + (x.paper ? " · ورقية (في الصف)" : "");
   const MONTHS = ["كانون الثاني", "شباط", "آذار", "نيسان", "أيار", "حزيران", "تموز", "آب", "أيلول", "تشرين الأول", "تشرين الثاني", "كانون الأول"];
   const LV = { 1: "مبتدئ", 2: "نامٍ", 3: "متمكّن", 4: "متميّز" };
 
@@ -130,7 +132,7 @@
       const can = x.running || left > 0;
       out += `<div class="spot"><div class="ibox">${ic("play", "lg")}</div>
         <div><span class="pill open">مفتوح الآن</span><h3 style="margin-top:6px">${esc(x.title)}</h3>
-          <div class="meta"><span>${esc(KIND[x.kind] || "")}</span><span>${x.n_questions} سؤالًا</span><span>${x.duration_min} دقيقة</span>
+          <div class="meta"><span>${esc(kindOf(x))}</span><span>${x.n_questions} سؤالًا</span><span>${x.duration_min} دقيقة</span>
           ${x.mode === "lab" ? "<span>داخل المختبر</span>" : ""}<span>يُغلق <b class="cd" data-cd="${x.ends_at}">${ago(x.ends_at)}</b></span></div></div>
         <div>${can ? `<button class="btn primary lg" data-start="${x.id}" data-mode="${x.mode}" data-running="${x.running ? 1 : 0}">${x.running ? "متابعة الاختبار" : "ابدأ الاختبار"}${ic("left", "sm")}</button>`
                    : '<span class="pill ended">سُلِّم</span>'}</div></div>`;
@@ -198,7 +200,7 @@
     } else if (x.used > 0 && !x.running) res = '<div class="tiny">' + ic("checkc", "sm") + " سُلِّمت إجاباتك. " + (x.result_visible ? "" : "تظهر النتيجة عندما يسمح المعلّم.") + "</div>";
     return `<div class="card xcard">
       <div class="row sp"><div class="ttl">${esc(x.title)}</div><span class="pill ${x.is_open ? "open" : "ended"}">${x.is_open ? "مفتوح" : "انتهى"}</span></div>
-      <div class="meta"><span>${esc(KIND[x.kind] || "")}</span><span>${ic("clock", "sm")}${x.duration_min} دقيقة</span><span>${ic("list", "sm")}${x.n_questions} سؤالًا</span>
+      <div class="meta"><span>${esc(kindOf(x))}</span><span>${ic("clock", "sm")}${x.duration_min} دقيقة</span><span>${ic("list", "sm")}${x.n_questions} سؤالًا</span>
         ${x.mode === "lab" ? `<span>${ic("lock", "sm")}داخل المختبر</span>` : ""}${x.max_attempts > 1 ? `<span>المحاولات: ${x.used} من ${x.max_attempts}</span>` : ""}</div>
       ${x.is_open ? `<div class="tiny">يُغلق ${esc(fmtDT(x.ends_at))}</div>` : ""}${res}${act}</div>`;
   }
@@ -209,7 +211,7 @@
     if (!up.length) return h + emptyBox("cal", "لا توجد اختبارات مجدولة", "عندما يجدول معلّمك اختبارًا يظهر هنا مع عدّ تنازلي.");
     return h + '<div class="card pad"><div class="timeline">' + up.map((x) =>
       `<div class="ev"><div class="row sp wrap"><b style="font-family:var(--f-disp)">${esc(x.title)}</b><span class="pill soon" data-cd="${x.starts_at}">${ago(x.starts_at)}</span></div>
-       <div class="tiny" style="margin-top:4px">${esc(fmtDT(x.starts_at))} · ${esc(KIND[x.kind] || "")} · ${x.duration} دقيقة · ${x.n} سؤالًا${x.mode === "lab" ? " · داخل المختبر" : ""}</div></div>`).join("") + "</div></div>";
+       <div class="tiny" style="margin-top:4px">${esc(fmtDT(x.starts_at))} · ${esc(kindOf(x))} · ${x.duration} دقيقة · ${x.n} سؤالًا${x.mode === "lab" ? " · داخل المختبر" : ""}</div></div>`).join("") + "</div></div>";
   }
 
   function pResults() {
@@ -218,7 +220,7 @@
     if (!hs.length) return h + emptyBox("award", "لا توجد نتائج بعد", "بعد أول اختبار تظهر هنا علاماتك وتفاصيلها على النتاجات.");
     return h + '<div class="card list">' + hs.map((x) => {
       const p = x.visible && x.total ? pct(x.score, x.total) : null;
-      return `<div class="li"><div><b>${esc(x.title)}</b><div class="tiny">${esc(KIND[x.kind] || "")} · ${esc(fmtDT(x.at))}${x.status === "expired" ? " · سُلِّم تلقائيًّا عند انتهاء الوقت" : ""}</div>
+      return `<div class="li"><div><b>${esc(x.title)}</b><div class="tiny">${esc(kindOf(x))} · ${esc(fmtDT(x.at))}${x.status === "expired" ? " · سُلِّم تلقائيًّا عند انتهاء الوقت" : ""}</div>
           ${p != null ? `<div class="bar" style="margin-top:8px;max-width:340px"><i style="width:${p}%"></i></div>` : ""}</div>
         <div style="text-align:end">${p != null ? `<div class="score num">${x.score}/${x.total}</div><button class="btn sm ghost" data-res="${x.id}">التفاصيل</button>`
                                                : '<span class="pill ended">النتيجة لم تُعلَن</span>'}</div></div>`;
