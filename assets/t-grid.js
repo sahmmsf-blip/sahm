@@ -27,7 +27,7 @@
       if (!L) { el.innerHTML = h + T.empty("target", "لا دروس في هذا الفصل"); wireLessons(el); return; }
       h += `<div class="vhead" style="margin-top:16px"><div><h2>الدرس ${L.seq}: ${esc(L.title)}</h2><p>الوحدة ${L.unit.seq}: ${esc(L.unit.title)} · ${L.outcomes.length} نتاجات · ${studs.length} طالبًا</p></div>
         <div class="toolbar"><select class="input sm" id="gTool" style="width:auto">${T.opt(G.tool, S.tools.map((t) => [t.code, t.name]))}</select>
-          <input type="date" class="input sm" id="gDate" value="${G.date}" style="width:auto"></div></div>
+          <input type="date" class="input sm" id="gDate" value="${G.date}" style="width:auto"><button class="btn outline sm" id="gPrint">${ic("printer", "sm")}ورقة رصد للطباعة</button></div></div>
         <div class="legend" style="margin-bottom:10px">${[1, 2, 3, 4].map((k) => `<span class="l${k}">${k} · ${T.LV[k]}</span>`).join("")}
           <span style="background:var(--surface-2)"><i style="width:7px;height:7px;border-radius:50%;background:var(--gold);display:inline-block"></i> من اختبار إلكتروني</span></div>`;
       if (!studs.length) { el.innerHTML = h + T.empty("users", "لا طلبة في هذه الشعبة"); wireLessons(el); return; }
@@ -49,6 +49,7 @@
       el.innerHTML = h;
       wireLessons(el);
       el.querySelector("#gTool").onchange = (e) => (G.tool = e.target.value);
+      el.querySelector("#gPrint").onclick = () => T.forms.outcomeDialog(G.lesson);
       el.querySelector("#gDate").onchange = (e) => (G.date = e.target.value || T.today());
       el.querySelectorAll(".cell").forEach((b) => {
         b.onclick = () => cellSheet(b.dataset.s, b.dataset.o);

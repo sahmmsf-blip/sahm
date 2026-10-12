@@ -272,6 +272,8 @@
       const dateKinds = !["marks"].includes(F.kind);
       el.innerHTML = `<div class="card pad filters">
           <div><span class="lbl">السجل</span><div class="kinds">${KINDS.map(([k, t, d]) => `<button class="kind" data-k="${k}" aria-pressed="${F.kind === k}"><b>${t}</b><span>${d}</span></button>`).join("")}</div></div>
+          <div><span class="lbl">نماذج فارغة للرصد داخل الحصة</span><div class="kinds"><button class="kind" id="fmDay"><b>ورقة الرصد اليومي للحصة</b><span>ليوم محدد أو لشهر/فترة كاملة — صفحة لكل يوم</span></button>
+            <button class="kind" id="fmOut"><b>ورقة رصد النتاجات</b><span>ملاحظة صفية أو أسئلة شفوية — حسب النتاج أو الدرس أو الوحدة</span></button></div></div>
           <div class="fields four">
             <label class="field"><span>الشعب</span><select class="input" id="fSecs">${T.opt(F.secs, [["cur", "الشعبة الحالية: " + T.sec().name], ["all", "كل الشعب (كل شعبة في صفحة)"]])}</select></label>
             <label class="field"><span>الفترة</span><select class="input" id="fRange" ${dateKinds ? "" : "disabled"}>${T.opt(F.range, [["all", "كل التواريخ"], ["month", "الشهر الحالي"], ["last", "الشهر الماضي"], ["custom", "من — إلى"]])}</select></label>
@@ -296,6 +298,7 @@
       el.querySelectorAll(".fL").forEach((cb) => (cb.onchange = () => { F.lessons = F.lessons.filter((x) => x !== cb.dataset.l); if (cb.checked) F.lessons.push(cb.dataset.l); re(); }));
       el.querySelectorAll("#fShow button").forEach((b) => (b.onclick = () => { F.show = b.dataset.s; re(); }));
       el.querySelectorAll("#fOrient button").forEach((b) => (b.onclick = () => { F.orient = b.dataset.o; re(); }));
+      el.querySelector("#fmDay").onclick = () => T.forms.dailyDialog(); el.querySelector("#fmOut").onclick = () => T.forms.outcomeDialog();
       el.querySelector("#fPrint").onclick = () => { const ms = models(); printDoc(ms[0].title + " — " + ms[0].sub, ms.map(modelHtml).join(""), ms[0].orient); };
       el.querySelector("#fXlsx").onclick = () => { const ms = models(); modelsXlsx(ms, ms[0].title + " - " + ms[0].sub + (F.secs === "all" ? " - كل الشعب" : " - " + T.sec().name)).catch((e) => toast(e.message, true)); };
       preview(el);

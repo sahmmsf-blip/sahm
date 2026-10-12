@@ -15,7 +15,7 @@
           <button data-m="ev" aria-pressed="${CS.mode === "ev"}">${ic("bolt", "sm")}الرصد اليومي</button></div></div>
         <div class="toolbar"><input type="date" class="input sm" id="cDate" value="${CS.date}" style="width:auto">
           <select class="input sm" id="cPer" style="width:auto">${T.opt(CS.period, [1, 2, 3, 4, 5, 6, 7].map((n) => [n, "الحصة " + ["الأولى", "الثانية", "الثالثة", "الرابعة", "الخامسة", "السادسة", "السابعة"][n - 1]]))}</select>
-          <button class="btn outline sm" id="cRand">${ic("spark", "sm")}طالب عشوائي</button><button class="btn outline sm" id="cGroups">${ic("users", "sm")}مجموعات متمايزة</button></div></div>`;
+          <button class="btn outline sm" id="cRand">${ic("spark", "sm")}طالب عشوائي</button><button class="btn outline sm" id="cGroups">${ic("users", "sm")}مجموعات متمايزة</button><button class="btn outline sm" id="cPrintDay">${ic("printer", "sm")}ورقة الرصد اليومي</button></div></div>`;
       if (!studs.length) { el.innerHTML = h + T.empty("users", "لا طلبة في هذه الشعبة", "", '<a class="btn primary" href="#people" style="margin-top:12px">أضف الطلبة</a>'); wireTop(el); return; }
       h += CS.mode === "att" ? attHtml(studs) : evHtml(studs);
       el.innerHTML = h; wireTop(el);
@@ -54,6 +54,7 @@
   }
 
   function wireTop(el) {
+    el.querySelector("#cPrintDay").onclick = () => T.forms.dailyDialog();
     el.querySelector("#cGroups").onclick = () => groupsSheet().catch((e) => toast(e.message, true));
     el.querySelectorAll("#cMode button").forEach((b) => (b.onclick = () => { CS.mode = b.dataset.m; T.route(); }));
     el.querySelector("#cDate").onchange = (e) => { CS.date = e.target.value || T.today(); T.route(); };
