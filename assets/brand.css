@@ -362,3 +362,38 @@ body.guarded.veiled #vExam .exam-main{filter:blur(14px);transition:filter .1s}
 @media print{body.guarded *{visibility:hidden!important}body.guarded::after{content:"الطباعة ممنوعة أثناء الاختبار";visibility:visible;position:fixed;inset:0;display:grid;place-items:center;font-size:28px}}
 .sheet{visibility:hidden;transition:transform .28s cubic-bezier(.2,.8,.2,1),opacity .2s,visibility 0s linear .3s}
 .sheet.on{visibility:visible;transition-delay:0s}
+
+/* ===== نتائجي وسلوكي (صفحة الطالب) ===== */
+.mks{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.mk{background:var(--surface-2);border-radius:14px;padding:12px;display:grid;gap:2px;text-align:center}
+.mk span{font-size:12.5px;color:var(--ink-2);font-weight:600}.mk b{font-size:24px;font-family:var(--f-disp)}.mk small{font-size:11.5px;color:var(--ink-3)}
+.mk em{font-style:normal;font-size:11.5px;color:var(--accent);font-weight:600}
+@media (max-width:640px){.mks{grid-template-columns:1fr 1fr}}
+.tcard{text-align:start;cursor:pointer;font:inherit;color:inherit;width:100%}
+.tcard:hover,.bcard:hover{border-color:var(--accent)}
+.bgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+@media (max-width:760px){.bgrid{grid-template-columns:1fr 1fr}}
+.bcard{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;display:grid;gap:6px;justify-items:start;cursor:pointer;font:inherit;color:inherit;text-align:start}
+.bcard b{font-size:26px;font-family:var(--f-disp)}.bcard span{font-size:13px;color:var(--ink-2);font-weight:600}
+.bcard.ok .ibox{background:#e7f4ea;color:#1d6b33}.bcard.bad .ibox{background:#fbe9e9;color:#a12a2a}.bcard.warn .ibox{background:#fdf2dc;color:#8a5a00}
+/* جداول وملاحظات في صفحة الطالب */
+.tw{overflow:auto;border:1px solid var(--line);border-radius:14px;background:var(--surface);max-width:100%}
+table.t{width:100%;border-collapse:separate;border-spacing:0;font-size:14px}
+table.t th{position:sticky;top:0;background:var(--surface-2);color:var(--ink-2);font-weight:700;font-size:12.5px;text-align:start;padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap;z-index:2}
+table.t td{padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:middle}
+table.t tr:last-child td{border-bottom:0}
+table.t tbody tr:hover td{background:color-mix(in srgb,var(--accent-soft) 45%,transparent)}
+table.t .num{text-align:center;font-variant-numeric:tabular-nums}
+.note{font-size:12.5px;color:var(--ink-2);background:var(--surface-2);border-radius:12px;padding:10px 12px;line-height:1.7}
+
+/* ===== بطاقات العلامات في الواجهة + التوصيات ===== */
+.mkpi{font:inherit;color:inherit;text-align:start;cursor:pointer;display:grid;gap:2px}
+.mkpi span{font-size:12.5px;opacity:.85}.mkpi b{font-size:26px}.mkpi small{font-size:11.5px;opacity:.8}
+.kpis.sm{margin-top:10px}.kpis.sm .kpi{padding:10px 14px}.kpis.sm .kpi b{font-size:18px}
+.smart .grow{min-width:0}
+.tshort{margin:6px 0 0;padding-inline-start:18px;display:grid;gap:4px}
+.tip{border-inline-start:4px solid var(--line-2)}
+.tip.urgent{border-inline-start-color:#c0392b}.tip.study{border-inline-start-color:#d68910}.tip.improve{border-inline-start-color:var(--accent)}
+.tip.behavior{border-inline-start-color:#7d5ba6}.tip.keep{border-inline-start-color:#1e8449}
+.tipo{background:var(--surface-2);border-radius:12px;padding:10px 12px}
+.tsteps{margin:0;padding-inline-start:20px;display:grid;gap:4px;font-size:13.5px;line-height:1.8}

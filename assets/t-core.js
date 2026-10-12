@@ -149,6 +149,14 @@
     const i = ds.indexOf(date); return i < 0 ? null : i + 1;
   }
 
+  // اسم القياس المرقّم كما يراه المعلم والطالب: «الكويز 3» أو «ورقة العمل 1» أو «الملاحظة الصفية 2»
+  function mLabel(m, secId) {
+    const t = toolName(m.tool_code);
+    if (m.exam_id && m.note) return m.note.split(" — ")[0];
+    const k = (m.note || "").match(/^((?:الكويز|ورقة العمل|الاختبار) \d+)/); if (k) return k[1];
+    const n = toolSeq(secId, m.tool_code, m.assessed_on); return t + (n ? " " + n : "");
+  }
+
   // ---------- استعلامات مساعدة ----------
   const sec = () => S.sections.find((s) => s.id === S.sec) || null;
   const secName = (id) => (S.sections.find((s) => s.id === id) || {}).name || "";
@@ -358,7 +366,7 @@
     });
   }
 
-  window.T = { sb, S, LV, LVD, KIND, TIER, CATN, exTitle, exKind, numberExams, loadTiers, tierOf, toolSeq, STATE, ATT, AR_M, rpc, q, all, guard, today, fmtD, nf, opt, empty, parseTSV, parseDate, loadScript, XLSX_URL,
+  window.T = { sb, S, LV, LVD, KIND, TIER, CATN, exTitle, exKind, numberExams, loadTiers, tierOf, toolSeq, mLabel, STATE, ATT, AR_M, rpc, q, all, guard, today, fmtD, nf, opt, empty, parseTSV, parseDate, loadScript, XLSX_URL,
     loadAll, loadQuestions, refreshExams, sec, secName, studentsOf, semUnits, outcomesOfUnits, toolName, W,
     buildShell, fillShell, view, route, go, every, wireLogin, openSearch, NAV };
 })();

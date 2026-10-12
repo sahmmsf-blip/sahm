@@ -80,7 +80,7 @@
         <span class="tiny">الأداة: ${esc(T.toolName(G.tool))} · ${esc(T.fmtD(G.date))} (غيّرهما من أعلى الجدول)</span></div>
       <div class="levels">${[1, 2, 3, 4].map((k) => `<button class="lvbtn" data-l="${k}" ${cur && cur.level === k ? 'aria-pressed="true"' : ""}><b>${k}</b><span><i>${T.LV[k]}</i><s>${T.LVD[k]}</s></span><span class="tiny">${k * 25}٪</span></button>`).join("")}</div>
       ${hist.length ? `<div class="lbl" style="margin-top:16px">سجل القياسات (${hist.length})</div><div class="hist">` + hist.map((m) => `<div class="h"><span class="lv lv${m.level}">${m.level} · ${T.LV[m.level]}</span>
-          <span class="grow">${esc(T.toolName(m.tool_code))}${(() => { const n = m.exam_id ? null : T.toolSeq(st.section_id, m.tool_code, m.assessed_on); return n ? " (" + n + ")" : ""; })()} · ${esc(T.fmtD(m.assessed_on))}${m.source === "exam" ? ' · <span class="pill gold">من المنصة</span>' : ""}${m.note ? `<br><span class="tiny">${esc(m.note)}</span>` : ""}</span>
+          <span class="grow"><b>${esc(T.mLabel(m, st.section_id))}</b> · ${esc(T.toolName(m.tool_code))} · ${esc(T.fmtD(m.assessed_on))}${m.source === "exam" ? ' · <span class="pill gold">من المنصة</span>' : ""}${m.note ? `<br><span class="tiny">${esc(m.note)}</span>` : ""}</span>
           ${m.source === "exam" ? "" : `<button class="btn sm ghost" data-del="${m.id}">حذف</button>`}</div>`).join("") + "</div>" : ""}`);
     b.querySelectorAll(".lvbtn").forEach((x) => (x.onclick = () => { closeSheet(); saveLevel(sid, oid, +x.dataset.l); }));
     b.querySelectorAll("[data-del]").forEach((x) => (x.onclick = async () => {

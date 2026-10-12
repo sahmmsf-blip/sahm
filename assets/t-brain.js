@@ -44,7 +44,7 @@
 
   // احتساب علامة طالب: التقويم الثاني = متوسط المستويات المقيسة ÷ ٤ × السقف، ونصيب كل نتاج يُجمع ليساوي العلامة
   function calc(st, opts) {
-    const key = st.id + (opts ? JSON.stringify(opts) : "");
+    const key = st.id + (opts ? "|" + ((opts.units || []).map((u) => u.id).join(",")) + "|" + (opts.filter ? "f" : "") : "");
     const cc = cache(); if (!opts && cc.calc.has(key)) return cc.calc.get(key);
     const c = caps(), units = (opts && opts.units) || T.semUnits(st.section_id);
     const effMap = opts && opts.filter ? build(opts.filter).m : cc.eff;

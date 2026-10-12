@@ -159,7 +159,7 @@
       const oset = new Set(outs.map((o) => o.id));
       studs.forEach((s) => S.mastery.filter((m) => m.student_id === s.id && oset.has(m.outcome_id) && inRange(m.assessed_on)).sort((a, b) => a.assessed_on.localeCompare(b.assessed_on)).forEach((m) => {
         const o = S.O[m.outcome_id], t = S.tools.find((x) => x.code === m.tool_code) || {};
-        M.rows.push([cell(s.serial_no), cell(s.full_name), cell(o.label + " — " + o.text, LIGHT.info, { wrap: true }), cell(m.exam_id && m.note ? m.note.split(" — ")[0] + " (" + (t.name || "") + ")" : (t.name || m.tool_code) + (T.toolSeq(secId, m.tool_code, m.assessed_on) ? " " + T.toolSeq(secId, m.tool_code, m.assessed_on) : ""), LIGHT.first), cell(t.strategy || "", LIGHT.first),
+        M.rows.push([cell(s.serial_no), cell(s.full_name), cell(o.label + " — " + o.text, LIGHT.info, { wrap: true }), cell(T.mLabel(m, secId) + (T.mLabel(m, secId).startsWith(t.name || "#") ? "" : " (" + (t.name || "") + ")"), LIGHT.first), cell(t.strategy || "", LIGHT.first),
           cell(m.level, LVF[m.level], { color: LVC[m.level], b: true }), cell(T.LV[m.level], LVF[m.level]), cell(T.fmtD(m.assessed_on), LIGHT.final), cell(m.source === "exam" ? "من المنصة" : "يدوي", LIGHT.verbal)]);
       }));
       M.note = "يبيّن هذا السجل النتاج المقيس، والأداة، والاستراتيجية، وتاريخ القياس — تنفيذًا للمادة (4)-ب من أسس النجاح والرسوب: «يحتفظ المعلم بسجل خاص تُدوَّن فيه ملحوظاته وتقويمات أداء الطالب… ويُعدّ هذا السجل سجلًا رسميًا يتابعه مدير المدرسة والمشرف التربوي».";

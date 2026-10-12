@@ -64,6 +64,9 @@
     if (act === "close_now" && !(await confirmSheet("إغلاق الاختبار الآن؟", "من يحلّ الآن تُسلَّم إجاباته المحفوظة تلقائيًّا.", "أغلق", true))) return;
     try {
       const r = await T.rpc("t_exam_action", { p_id: id, p_action: act });
+      if (act === "duplicate" && r && r.id) { const src = S.exams.find((e) => e.id === id) || {};   // النسخة ترث نوع الأداة والتمايز والحماية
+        await T.q(T.sb.from("exams").update({ tool: src.tool || null, paper: !!src.paper, differentiated: !!src.differentiated,
+          secure_mode: src.secure_mode !== false, max_violations: src.max_violations || 0 }).eq("id", r.id)); }
       toast({ publish: "نُشر الاختبار", open_now: "فُتح الاختبار", close_now: "أُغلق الاختبار", reopen: "أُعيد فتح الاختبار", new_code: "رمز جديد: " + ((r && r.lab_code) || ""),
         duplicate: "أُنشئت نسخة (مسودة)", delete: "حُذف", draft: "صار مسودة" }[act] || "تم");
       await T.refreshExams(); if (act === "delete" && S.cur === "exam") T.go("#exams"); else T.route();
@@ -105,7 +108,7 @@
         <label class="field"><span>مدة الطالب (دقيقة)</span><input class="input mono" type="number" min="1" max="300" id="eD" value="${e.duration_min}"></label></div>
       <div class="field" style="margin-top:12px"><span>الشعب</span><div class="row wrap">${S.sections.map((s) =>
         `<label class="check"><input type="checkbox" class="eSec" value="${s.id}" ${(e.section_ids || []).includes(s.id) ? "checked" : ""}> ${esc(s.name)} <span class="tiny">(${s.n_cred}/${s.n} جاهز)</span></label>`).join("")}</div></div>
-      <div class="fields two" style="margin-top:12px"><label class="field"><span>عرض النتيجة للطالب</span><select class="input" id="eR">${T.opt(e.show_result, [["immediate", "فور التسليم"], ["after_close", "بعد إغلاق الاختبار"], ["never", "لا تُعرض"]])}</select></label>
+      <div class="fields two" style="margin-top:12px"><label class="field"><span>عرض النتيجة للطالب</span><select class="input" id="eR">${T.opt(e.show_result, [["immediate", "فور التسليم"], ["after_close", "بعد انتهاء الأداة (تظهر في «نتائجي»)"]])}</select></label>
         <label class="field"><span>عدد المحاولات (تُحتسب الأعلى)</span><select class="input" id="eA">${T.opt(String(e.max_attempts), [1, 2, 3, 4, 5].map((n) => [String(n), String(n)]))}</select></label></div>
       <div class="row wrap" style="margin-top:10px;gap:14px"><label class="check"><input type="checkbox" id="eQS" ${e.shuffle_questions ? "checked" : ""}> خلط ترتيب الأسئلة</label>
         <label class="check"><input type="checkbox" id="eOS" ${e.shuffle_options ? "checked" : ""}> خلط الخيارات</label><label class="check"><input type="checkbox" id="eB" ${e.allow_back ? "checked" : ""}> السماح بالرجوع</label></div>
