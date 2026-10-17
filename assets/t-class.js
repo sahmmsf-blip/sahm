@@ -85,7 +85,7 @@
         <div class="toolbar"><button class="btn primary sm" id="aAll">${ic("check", "sm")}الباقون حاضرون</button><button class="btn ghost sm" id="aClear">مسح اليوم</button></div></div>
         <p class="tiny" style="margin-top:8px">اضغط بطاقة الطالب لتبديل حالته: حاضر ← غائب ← متأخر ← غائب بعذر. يُحفظ فورًا.</p></div>
       <div class="cgrid">` + studs.map((s) => { const a = attOf(s.id), st = a ? a.status : "";
-        return `<button class="sc ${st}" data-s="${s.id}"><span class="no">${s.serial_no}</span><span class="nm">${esc(s.full_name)}</span><span class="st">${st ? T.ATT[st] : "—"}</span></button>`; }).join("") + "</div>";
+        return `<button class="sc ${st}" data-s="${s.id}"><span class="no">${s.serial_no}</span><span class="nm">${T.av(s.id, 30)}${esc(s.full_name)}</span><span class="st">${st ? T.ATT[st] : "—"}</span></button>`; }).join("") + "</div>";
   }
   function wireAtt(el, studs) {
     const saveT = {};
@@ -122,12 +122,12 @@
         <div class="toolbar"><button class="btn ghost sm" id="eAll">تحديد الكل</button><button class="btn ghost sm" id="eNone">إلغاء التحديد</button></div></div>
       <div class="cgrid">` + studs.map((s) => { const n = net(s.id), a = attOf(s.id);
         return `<button class="sc ${CS.sel.has(s.id) ? "sel" : ""}" data-s="${s.id}" ${a && a.status === "absent" ? 'style="opacity:.45"' : ""}><span class="no">${s.serial_no}${a && a.status === "absent" ? " · غائب" : ""}</span>
-          <span class="nm">${esc(s.full_name)}</span>${n ? `<span class="pts ${n > 0 ? "pos" : "neg"}">${n > 0 ? "+" : ""}${T.nf(n, 1)}</span>` : ""}</button>`; }).join("") + `</div>
+          <span class="nm">${T.av(s.id, 30)}${esc(s.full_name)}</span>${n ? `<span class="pts ${n > 0 ? "pos" : "neg"}">${n > 0 ? "+" : ""}${T.nf(n, 1)}</span>` : ""}</button>`; }).join("") + `</div>
       <div class="dock"><div class="row sp" style="margin-bottom:10px"><b id="eSelTxt">${CS.sel.size ? "المحدَّدون: " + CS.sel.size : "لم تحدّد طالبًا"}</b><span class="tiny">الحصة ${CS.period}</span></div>
         <div class="evgrid">${pos.map(evBtn).join("")}</div><div class="evgrid" style="margin-top:8px">${neg.map(evBtn).join("")}</div></div>
       <div class="sect"><h3>${ic("list", "sm")}سجل ${CS.date === T.today() ? "اليوم" : T.fmtD(CS.date)} <span class="tiny">${log.length} حدثًا</span></h3>
         <div class="card pad log">${log.length ? log.map((e) => { const st = S.stu[e.student_id], t = S.eventTypes.find((x) => x.id === e.event_type_id) || {};
-          return `<div class="lr"><span style="font-size:18px">${esc(t.icon || "•")}</span><span class="grow"><b>${esc(st ? st.full_name : "")}</b> — ${esc(t.label || "")} <span class="tiny">· الحصة ${e.period || "—"}</span></span>
+          return `<div class="lr"><span style="font-size:18px">${esc(t.icon || "•")}</span><span class="grow">${st ? T.av(st.id, 22) : ""}<b>${esc(st ? st.full_name : "")}</b> — ${esc(t.label || "")} <span class="tiny">· الحصة ${e.period || "—"}</span></span>
             <button class="btn sm ghost" data-del="${e.id}">تراجع</button></div>`; }).join("") : '<p class="tiny" style="margin:0">لا أحداث بعد.</p>'}</div></div>`;
   }
   const evBtn = (e) => `<button class="evb ${e.direction > 0 ? "pos" : "neg"}" data-ev="${e.id}"><span class="e">${esc(e.icon || "•")}</span>${esc(e.label)}</button>`;

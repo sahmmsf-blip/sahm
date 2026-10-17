@@ -306,7 +306,7 @@
       st.map((s) => { const p = s.total ? Math.round((s.score / s.total) * 100) : null, dur = s.submitted_at && s.started_at ? Math.round((new Date(s.submitted_at) - new Date(s.started_at)) / 60000) : null;
         const [lbl, cls] = paper && s.status === "in_progress" ? ["لم تُرصد", "scheduled"] : paper && s.status === "absent" ? ["لا ورقة", "bad"] : STAT[s.status] || [s.status, ""], v = vCount(s.id);
         const tr = dif && T.TIER[R.tierBy[s.id]];
-        return `<tr><td class="num">${s.serial}</td><td><a href="#student/${s.id}" style="color:inherit;font-weight:600">${esc(s.name)}</a></td><td class="tiny">${esc(s.section)}</td>${dif ? `<td>${tr ? `<span class="pill ${tr.cls}">${tr.sym} ${tr.n}</span>` : "—"}</td>` : ""}
+        return `<tr><td class="num">${s.serial}</td><td><a href="#student/${s.id}" style="color:inherit;font-weight:600">${T.av(s.id, 24)}${esc(s.name)}</a></td><td class="tiny">${esc(s.section)}</td>${dif ? `<td>${tr ? `<span class="pill ${tr.cls}">${tr.sym} ${tr.n}</span>` : "—"}</td>` : ""}
           <td class="num">${s.score != null ? s.score + "/" + s.total : "—"}</td><td class="num"><span class="pill ${p == null ? "" : p >= 50 ? "open" : "bad"}">${p == null ? "—" : p + "٪"}</span></td>
           <td><span class="pill ${cls}">${lbl}</span></td><td class="num">${dur != null ? dur + " د" : "—"}</td><td class="num">${v ? `<span class="pill bad">${v}</span>` : "—"}</td>
           <td>${s.n_attempts && !paper ? `<button class="btn sm ghost" data-reset="${s.id}">إعادة</button>` : ""}</td></tr>`; }).join("") + "</tbody></table></div>" +
@@ -343,7 +343,7 @@
       <div class="note" style="margin-bottom:10px">الرصد: انقر الخانة (✓ صحيح ← ✗ خطأ ← فارغ)، أو اكتب حرف إجابة الطالب <b>أ ب ج د</b> (أو ١–٤) فتُصحَّح فورًا، وتتنقّل بالأسهم. يُحفظ كل صف تلقائيًّا.</div>
       <div class="tw"><table class="t pgrid"><thead><tr><th class="num">م</th><th>الطالب</th><th>النموذج</th>${Array.from({ length: n }, (_, i) => `<th class="num">${i + 1}</th>`).join("")}<th class="num">العلامة</th><th></th></tr></thead><tbody>` +
       sh.map((z, r) => { const tr = T.TIER[z.tier];
-        return `<tr data-r="${r}"><td class="num">${z.serial}</td><td style="white-space:nowrap">${esc(z.name)}</td><td>${tr ? `<span class="pill ${tr.cls}">${tr.sym} ${tr.n}</span>` : "—"}</td>` +
+        return `<tr data-r="${r}"><td class="num">${z.serial}</td><td style="white-space:nowrap">${T.av(z.student_id, 24)}${esc(z.name)}</td><td>${tr ? `<span class="pill ${tr.cls}">${tr.sym} ${tr.n}</span>` : "—"}</td>` +
           (z.items || []).map((it, i) => { const c = cellOf(it, (z.answers || {})[it.q]); return `<td class="num"><button class="pc ${c.c}" data-r="${r}" data-i="${i}" title="${esc(it.outcome + " · " + it.diff)}">${c.t}</button></td>`; }).join("") +
           Array.from({ length: n - (z.items || []).length }, () => "<td></td>").join("") +
           `<td class="num" data-sc="${r}">${z.status !== "in_progress" && z.total ? z.score + "/" + z.total : "—"}</td><td style="white-space:nowrap"><button class="btn sm ghost" data-all="${r}">✓ الكل</button>${z.status !== "in_progress" ? `<button class="btn sm ghost" data-un="${r}">إلغاء الرصد</button>` : ""}</td></tr>`; }).join("") +
@@ -421,7 +421,7 @@
     const ids = Object.keys(by).sort((a, b) => by[b].length - by[a].length), stMap = {}; R.rep.students.forEach((s) => (stMap[s.id] = s));
     document.getElementById("rTab").innerHTML = ids.length ? '<div class="stack">' + ids.map((sid) => { const s = stMap[sid] || S.stu[sid] || {}, evs = by[sid], kinds = {};
         evs.forEach((e) => (kinds[e.kind] = (kinds[e.kind] || 0) + 1));
-        return `<details class="card pad"><summary style="cursor:pointer;list-style:none"><div class="row sp wrap"><b>${esc(s.name || s.full_name || "")}</b>
+        return `<details class="card pad"><summary style="cursor:pointer;list-style:none"><div class="row sp wrap"><b>${T.av(sid, 24)}${esc(s.name || s.full_name || "")}</b>
             <span class="row wrap" style="gap:6px">${Object.entries(kinds).map(([k, n]) => `<span class="pill bad">${esc(KINDS[k] || k)} × ${n}</span>`).join("")}</span></div></summary>
           <div class="log" style="margin-top:10px">${evs.map((e) => `<div class="lr"><span class="tiny num" style="min-width:64px">${esc(U.fmtTime(e.at))}</span><span class="grow">${esc(KINDS[e.kind] || e.kind)}${e.detail ? " — " + esc(e.detail) : ""}</span></div>`).join("")}</div></details>`; }).join("") +
       `</div><p class="tiny" style="margin-top:10px">تُرصد المخالفات تلقائيًّا في وضع الحماية. لقطة الشاشة على الهاتف لا يمكن لأي موقع منعها، لكن العلامة المائية باسم الطالب تكشف أي صورة مسرّبة.</p>`
@@ -454,7 +454,7 @@
   function tabMatrix() {
     const os = R.rep.outcomes, st = R.rep.students.filter((s) => s.outcomes);
     document.getElementById("rTab").innerHTML = st.length ? `<div class="tw"><table class="t"><thead><tr><th>الطالب</th>${os.map((o) => `<th class="num" title="${esc(o.text)}">${esc(o.label)}</th>`).join("")}</tr></thead><tbody>` +
-      st.map((s) => `<tr><td>${esc(s.name)}</td>` + os.map((o) => { const v = s.outcomes[o.id]; if (!v) return '<td class="num">—</td>'; const l = lvlOf(v[0], v[1]); return `<td class="num lv${l}" title="${T.LV[l]}">${v[0]}/${v[1]}</td>`; }).join("") + "</tr>").join("") + "</tbody></table></div>"
+      st.map((s) => `<tr><td style="white-space:nowrap">${T.av(s.id, 22)}${esc(s.name)}</td>` + os.map((o) => { const v = s.outcomes[o.id]; if (!v) return '<td class="num">—</td>'; const l = lvlOf(v[0], v[1]); return `<td class="num lv${l}" title="${T.LV[l]}">${v[0]}/${v[1]}</td>`; }).join("") + "</tr>").join("") + "</tbody></table></div>"
       : T.empty("grid", "لا تسليمات بعد");
   }
   async function exportXlsx() {

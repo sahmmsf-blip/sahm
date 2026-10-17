@@ -168,6 +168,36 @@
     low: "كل متفوّق بدأ من خطوة. ابدأ بالنتاجات التي لم تتقنها بعد، واستفد من كل أداة كفرصة جديدة، وستُفاجأ بتقدّمك. أنا معك خطوة بخطوة."
   };
 
+  // أدوات الترتيب المشتركة (صفحة الطالب وشاشة المعلم)
+  const ORD = ["", "الأول", "الثاني", "الثالث", "الرابع", "الخامس", "السادس", "السابع", "الثامن", "التاسع", "العاشر"];
+  const TENS = { 2: "العشرون", 3: "الثلاثون", 4: "الأربعون", 5: "الخمسون", 6: "الستون", 7: "السبعون", 8: "الثمانون", 9: "التسعون" };
+  const RK = {
+    ordinal(n) {
+      if (!n || n >= 100) return String(n || "");
+      if (n <= 10) return ORD[n]; if (n === 11) return "الحادي عشر"; if (n < 20) return ORD[n - 10] + " عشر";
+      const t = Math.floor(n / 10), u = n % 10; return u ? (u === 1 ? "الحادي" : ORD[u]) + " و" + TENS[t] : TENS[t];
+    },
+    band: (r, n) => (r == null ? null : r <= 10 ? "top" : r > n - Math.floor(n / 3) ? "low" : "mid"),
+    theme(r, n) {
+      const b = RK.band(r, n);
+      if (!b) return "linear-gradient(135deg,#9aa4b2,#5b6575)";
+      if (r === 1) return "linear-gradient(135deg,#fff1b8,#fbbf24 45%,#b7791f)";
+      if (r === 2) return "linear-gradient(135deg,#ffffff,#cbd5e1 45%,#64748b)";
+      if (r === 3) return "linear-gradient(135deg,#ffe4c7,#e08a3c 50%,#8a4a14)";
+      if (b === "top") { const h = 258 - (r - 4) * 8; return `linear-gradient(135deg,hsl(${h} 85% 70%),hsl(${h} 62% 46%) 55%,hsl(${h + 8} 70% 30%))`; }
+      if (b === "low") return "linear-gradient(135deg,#fdba74,#f97316 55%,#c2410c)";
+      const lowStart = n - Math.floor(n / 3), p = Math.min(1, Math.max(0, (r - 11) / Math.max(1, lowStart - 11))), h = 166 + p * 46;
+      return `linear-gradient(135deg,hsl(${h} 70% 58%),hsl(${h} 72% 38%) 55%,hsl(${h + 10} 75% 26%))`;
+    },
+    star: '<svg class="rk-star" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1.8l3 6.6 7.2.7-5.4 4.8 1.6 7.1L12 17.3 5.6 21l1.6-7.1L1.8 9.1 9 8.4z" fill="#fbbf24" stroke="#92400e" stroke-width=".7" stroke-linejoin="round"/></svg>',
+    confetti(n) {
+      const C = ["#fbbf24", "#f59e0b", "#fde68a", "#60a5fa", "#f472b6", "#34d399", "#a78bfa", "#ffffff"]; let h = '<span class="confetti" aria-hidden="true">';
+      for (let i = 0; i < (n || 22); i++) { const a = Math.random() * Math.PI - Math.PI, d = 70 + Math.random() * 160;
+        h += `<i style="--x:${Math.round(Math.cos(a) * d)}px;--y:${Math.round(Math.sin(a) * d * 0.9)}px;--r:${Math.round(Math.random() * 720 - 360)}deg;--d:${(Math.random() * 2.6).toFixed(2)}s;--c:${C[i % C.length]};--w:${4 + Math.round(Math.random() * 4)}px"></i>`; }
+      return h + "</span>";
+    }
+  };
+
   window.U = { $, esc, L, fmtDT, fmtTime, toLocalInput, fromLocalInput, mmss, digits, toast, openSheet, closeSheet,
-               confirmSheet, rpcFetch, cycleTheme, download, csv, SKINS, applySkin, initSkin, skinPicker, spin, greet, firstName, ago, TZ, HONOR };
+               confirmSheet, rpcFetch, cycleTheme, download, csv, SKINS, applySkin, initSkin, skinPicker, spin, greet, firstName, ago, TZ, HONOR, RK };
 })();

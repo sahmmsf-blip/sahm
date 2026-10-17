@@ -38,7 +38,7 @@
         studs.map((s, ri) => {
           const lv = L.outcomes.map((o) => B().effOf(s.id, o.id)), got = lv.filter(Boolean);
           const avg = got.length ? got.reduce((a, r) => a + r.level, 0) / got.length : null;
-          return `<tr><td class="nm"><div class="stud"><span class="no">${s.serial_no}</span><a class="s" href="#student/${s.id}" style="color:inherit">${esc(s.full_name)}</a></div></td>` +
+          return `<tr><td class="nm"><div class="stud"><span class="no">${s.serial_no}</span><a class="s" href="#student/${s.id}" style="color:inherit">${T.av(s.id, 24)}${esc(s.full_name)}</a></div></td>` +
             L.outcomes.map((o, ci) => { const r = lv[ci], n = B().countOf(s.id, o.id);
               return `<td class="c"><button class="cell ${r ? "l" + r.level : ""}" data-s="${s.id}" data-o="${o.id}" data-r="${ri}" data-c="${ci}">${r ? r.level : "·"}${r && r.source === "exam" ? '<span class="src"></span>' : ""}${n > 1 ? `<span class="cnt">${n}</span>` : ""}</button></td>`; }).join("") +
             `<td class="c"><b class="num" style="color:var(--ink-2)">${avg ? T.nf(avg, 1) : "—"}</b></td></tr>`;
@@ -77,7 +77,7 @@
   function cellSheet(sid, oid) {
     const st = S.stu[sid], o = S.O[oid], cur = B().effOf(sid, oid);
     const hist = S.mastery.filter((m) => m.student_id === sid && m.outcome_id === oid).sort((a, b) => b.assessed_on.localeCompare(a.assessed_on) || (b.created_at || "").localeCompare(a.created_at || ""));
-    const b = openSheet(`<h3>${esc(st.full_name)}</h3><div class="note" style="margin-bottom:12px"><b>${esc(o.label)}</b> — ${esc(o.text)}<br>
+    const b = openSheet(`<h3>${T.av(st.id, 30)}${esc(st.full_name)}</h3><div class="note" style="margin-bottom:12px"><b>${esc(o.label)}</b> — ${esc(o.text)}<br>
         <span class="tiny">الأداة: ${esc(T.toolName(G.tool))} · ${esc(T.fmtD(G.date))} (غيّرهما من أعلى الجدول)</span></div>
       <div class="levels">${[1, 2, 3, 4].map((k) => `<button class="lvbtn" data-l="${k}" ${cur && cur.level === k ? 'aria-pressed="true"' : ""}><b>${k}</b><span><i>${T.LV[k]}</i><s>${T.LVD[k]}</s></span><span class="tiny">${k * 25}٪</span></button>`).join("")}</div>
       ${hist.length ? `<div class="lbl" style="margin-top:16px">سجل القياسات (${hist.length})</div><div class="hist">` + hist.map((m) => `<div class="h"><span class="lv lv${m.level}">${m.level} · ${T.LV[m.level]}</span>
@@ -110,7 +110,7 @@
     const rows = r.outs.filter((o) => r.lv[o.id]).map((o) => { const e = B().effOf(st.id, o.id) || {};
       return `<tr><td><span class="lbl-chip">${esc(o.short)}</span> <span class="tiny">${esc(o.text)}</span></td><td class="num lv${r.lv[o.id]}">${r.lv[o.id]} · ${T.LV[r.lv[o.id]]}</td>
         <td class="num">${T.nf(r.w[o.id])}</td><td class="tiny">${esc(e.note || T.toolName(e.tool_code))}</td></tr>`; }).join("");
-    openSheet(`<h3>تفصيل التقويم الثاني — ${esc(st.full_name)}</h3>
+    openSheet(`<h3>تفصيل التقويم الثاني — ${T.av(st.id, 30)}${esc(st.full_name)}</h3>
       <div class="note">قيس <b>${r.N}</b> نتاجًا من ${r.nOut}. متوسط المستويات <b>${T.nf(r.avgLv, 2)}</b> من ٤ ← ${T.nf(r.avgLv, 2)} ÷ ٤ × ${T.nf(c.cap2)} = <b>${T.nf(r.second)}</b> من ${T.nf(c.cap2)}.</div>
       ${r.N ? `<div class="tw" style="margin-top:10px"><table class="t"><thead><tr><th>النتاج</th><th class="num">المستوى المعتمد</th><th class="num">حصّته</th><th>المصدر</th></tr></thead><tbody>${rows}</tbody></table></div>` : T.empty("target", "لم يُقس أي نتاج بعد")}`);
   }
@@ -128,7 +128,7 @@
         <div class="tw"><table class="t" id="mT"><thead><tr><th class="num">م</th><th>الطالب</th><th class="num">الأول (${T.nf(c.cap1)})</th><th class="num">غائب بلا عذر</th>
           <th class="num">الثاني (${T.nf(c.cap2)})</th><th class="num">النهائي (${T.nf(c.cap3)})</th><th class="num">غائب بلا عذر</th><th class="num">المجموع</th><th>التقدير</th></tr></thead><tbody>` +
         studs.map((s) => { const f = mk(s.id, "first_written"), z = mk(s.id, "final_written"), r = B().calc(s);
-          return `<tr data-s="${s.id}"><td class="num">${s.serial_no}</td><td><a href="#student/${s.id}" style="color:inherit;font-weight:600">${esc(s.full_name)}</a></td>
+          return `<tr data-s="${s.id}"><td class="num">${s.serial_no}</td><td><a href="#student/${s.id}" style="color:inherit;font-weight:600">${T.av(s.id, 24)}${esc(s.full_name)}</a></td>
             <td class="num"><input class="input mono m1" inputmode="decimal" value="${f.mark != null ? f.mark : ""}" style="width:84px;text-align:center"></td>
             <td class="num"><input type="checkbox" class="a1" ${f.absent_no_excuse ? "checked" : ""} style="width:18px;height:18px;accent-color:var(--danger)"></td>
             <td class="num"><button class="btn sm ghost why" data-why="${s.id}" title="كيف حُسبت؟"><b>${T.nf(r.second)}</b></button></td>

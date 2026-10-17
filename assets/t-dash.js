@@ -60,7 +60,7 @@
       // يحتاجون دعمًا
       h += `<div class="sect"><h3>${ic("user", "sm")}يحتاجون دعمًا</h3>`;
       h += sm.risks.length ? '<div class="risk">' + sm.risks.slice(0, 6).map((x) => `<a class="rk" href="#student/${x.st.id}" style="text-decoration:none;color:inherit">
-          <span class="avatar">${esc(U.firstName(x.st.full_name).slice(0, 1))}</span><span><b style="font-size:14px">${esc(x.st.full_name)}</b><div class="why">${esc(x.why.join(" · "))}</div></span>
+          ${T.avBox(x.st, 32)}<span><b style="font-size:14px">${esc(x.st.full_name)}</b><div class="why">${esc(x.why.join(" · "))}</div></span>
           <span class="scorepill">${x.score}</span></a>`).join("") + "</div>"
         : '<div class="card pad tiny">لا يوجد طالب في دائرة الخطر حسب البيانات الحالية.</div>';
       h += "</div>";

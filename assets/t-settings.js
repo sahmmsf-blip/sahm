@@ -41,7 +41,7 @@
           <div class="fields three">${[["top", "العشرة الأوائل (بطاقة الشرف)"], ["mid", "الوسط"], ["low", "الأواخر (بلا رقم ترتيب)"]].map(([k, t]) =>
             `<label class="field"><span>${t}</span><textarea class="input hm" data-k="${k}" rows="5">${esc(((me.honor_msgs || {})[k]) || U.HONOR[k])}</textarea></label>`).join("")}</div>
           <button class="btn sm ghost" id="sHonorReset" style="margin-top:8px">استعادة الرسائل الافتراضية</button></div></div>
-        <p class="tiny" style="text-align:center;margin-top:20px">منصة السهم العلمي للاختبارات الذكية وتقويم الأداء · الإصدار 3.6 — الدفتر الجانبي ومنصة الاختبارات في منظومة واحدة</p>`;
+        <p class="tiny" style="text-align:center;margin-top:20px">منصة السهم العلمي للاختبارات الذكية وتقويم الأداء · الإصدار 3.7 — الدفتر الجانبي ومنصة الاختبارات في منظومة واحدة</p>`;
       const cap = () => { const m = +el.querySelector("#sMax").value || 0, p1 = +el.querySelector("#sP1").value || 0, p2 = +el.querySelector("#sP2").value || 0, p3 = +el.querySelector("#sP3").value || 0;
         el.querySelector("#capNote").innerHTML = `الأول ${T.nf(m * p1 / 100)} · الثاني ${T.nf(m * p2 / 100)} · النهائي ${T.nf(m * p3 / 100)} — المجموع ${T.nf(m * (p1 + p2 + p3) / 100)} من ${m}` +
           (p1 + p2 + p3 !== 100 ? ' <b style="color:var(--danger)">(النسب لا تساوي ١٠٠٪)</b>' : ""); };

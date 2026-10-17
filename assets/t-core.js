@@ -89,7 +89,7 @@
     const extra = {}; exx.forEach((x) => (extra[x.id] = x));
     S.exams = boot.exams.map((e) => Object.assign({}, e, extra[e.id] || {})); numberExams();
     S.alertsSrv = boot.alerts || []; S.nq = boot.n_questions;
-    loadPhotoPending();
+    loadPhotoPending(); loadPhotos();
     const counts = {}; boot.sections.forEach((s) => (counts[s.id] = s));
     S.sections = sections.map((s) => Object.assign({}, s, { n: (counts[s.id] || {}).n || 0, n_cred: (counts[s.id] || {}).n_cred || 0 }));
     S.students = students;
@@ -117,6 +117,18 @@
     return S.qs;
   }
   // صور الطلبة بانتظار موافقة المعلم (عدد فقط، والصور تُحمَّل عند الحاجة)
+  // الصور المعتمدة للطلبة: تظهر بجانب أسمائهم في كل الصفحات (عدا السجلات والمطبوعات)
+  S.photos = {};
+  async function loadPhotos() {
+    try { const r = await q(sb.from("student_photos").select("student_id,photo").not("photo", "is", null));
+      S.photos = {}; r.forEach((x) => { if (x.photo) S.photos[x.student_id] = x.photo; });
+      // إعادة العرض فقط في الصفحات التي لا تحوي خانات إدخال قد يفقد المعلم ما كتبه فيها
+      if (r.length && ["dash", "class", "grid", "rank", "student", "exam", "exams", "sheets"].includes(S.cur) && !document.querySelector("#sheet.on")) { try { T.route(); } catch (e) {} } }
+    catch (e) { /* اختياري */ }
+  }
+  const av = (id, size) => S.photos[id] ? `<img class="sav" src="${esc(S.photos[id])}" alt="" style="width:${size || 26}px;height:${size || 26}px">` : "";
+  // دائرة الطالب: صورته إن وُجدت، وإلا الحرف الأول من اسمه
+  const avBox = (st, size) => { const z = size || 40; return S.photos[st.id] ? av(st.id, z) : `<span class="avatar avb" style="width:${z}px;height:${z}px;font-size:${Math.round(z * 0.4)}px">${esc(U.firstName(st.full_name || "").slice(0, 1))}</span>`; };
   async function loadPhotoPending() {
     try { const r = await q(sb.from("student_photos").select("student_id").eq("status", "pending")); S.photoPending = r.map((x) => x.student_id); }
     catch (e) { S.photoPending = []; }
@@ -220,7 +232,7 @@
   // ---------- الهيكل والتنقّل ----------
   const NAV = [
     { g: "القيادة" }, { v: "dash", t: "لوحة القيادة", ic: "home" },
-    { g: "داخل الصف" }, { v: "class", t: "الحصة الآن", ic: "bolt" }, { v: "grid", t: "رصد النتاجات", ic: "target" }, { v: "marks", t: "العلامات", ic: "award" },
+    { g: "داخل الصف" }, { v: "class", t: "الحصة الآن", ic: "bolt" }, { v: "grid", t: "رصد النتاجات", ic: "target" }, { v: "marks", t: "العلامات", ic: "award" }, { v: "rank", t: "الترتيب ولوحة الشرف", ic: "spark" },
     { g: "أدوات التقويم" }, { v: "bank", t: "بنك الأسئلة", ic: "layers" }, { v: "exams", t: "الاختبارات والكويزات", ic: "file" }, { v: "sheets", t: "أوراق العمل", ic: "book" },
     { g: "الإدارة" }, { v: "people", t: "الطلبة والشعب", ic: "users" }, { v: "records", t: "السجلات والطباعة", ic: "printer" }, { v: "settings", t: "الإعدادات", ic: "key" }
   ];
@@ -288,7 +300,7 @@
       let st = [], oc = [], ex = [];
       if (s) {
         st = S.students.filter((x) => norm(x.full_name).includes(s) || (x.national_id || "").includes(s) || String(x.serial_no) === s).slice(0, 8)
-          .map((x) => ({ g: "الطلبة", t: x.full_name, k: secName(x.section_id) + (x.is_active ? "" : " · مؤرشف"), ic: "user", h: "#student/" + x.id }));
+          .map((x) => ({ g: "الطلبة", t: x.full_name, k: secName(x.section_id) + (x.is_active ? "" : " · مؤرشف"), ic: "user", sid: x.id, h: "#student/" + x.id }));
         oc = Object.values(S.O).filter((o) => norm(o.text).includes(s) || norm(o.label).includes(s)).slice(0, 6)
           .map((o) => ({ g: "النتاجات", t: o.label + " — " + o.text, k: "رصد", ic: "target", h: "#grid/" + o.lesson.id }));
         ex = S.exams.filter((e) => norm(exTitle(e)).includes(s)).slice(0, 5).map((e) => ({ g: "أدوات التقويم", t: exTitle(e), k: STATE[e.state], ic: "file", h: "#exam/" + e.id }));
@@ -296,7 +308,7 @@
       items = st.concat(oc, ex, pages.slice(0, s ? 4 : 11)); idx = 0;
       let g = "";
       res.innerHTML = items.length ? items.map((it, i) => (it.g !== g ? `<div class="grp">${(g = it.g)}</div>` : "") +
-        `<button class="it ${i === idx ? "on" : ""}" data-i="${i}">${ic(it.ic, "sm")}<span>${esc(it.t)}</span><span class="k">${esc(it.k)}</span></button>`).join("")
+        `<button class="it ${i === idx ? "on" : ""}" data-i="${i}">${it.sid && S.photos[it.sid] ? av(it.sid, 22) : ic(it.ic, "sm")}<span>${esc(it.t)}</span><span class="k">${esc(it.k)}</span></button>`).join("")
         : '<div class="empty tiny">لا نتائج.</div>';
       res.querySelectorAll("[data-i]").forEach((b) => (b.onclick = () => { close(); go(items[+b.dataset.i].h); }));
     };
@@ -373,7 +385,7 @@
     });
   }
 
-  window.T = { loadPhotoPending, sb, S, LV, LVD, KIND, TIER, CATN, exTitle, exKind, numberExams, loadTiers, tierOf, toolSeq, mLabel, STATE, ATT, AR_M, rpc, q, all, guard, today, fmtD, nf, opt, empty, parseTSV, parseDate, loadScript, XLSX_URL,
+  window.T = { loadPhotoPending, loadPhotos, av, avBox, sb, S, LV, LVD, KIND, TIER, CATN, exTitle, exKind, numberExams, loadTiers, tierOf, toolSeq, mLabel, STATE, ATT, AR_M, rpc, q, all, guard, today, fmtD, nf, opt, empty, parseTSV, parseDate, loadScript, XLSX_URL,
     loadAll, loadQuestions, refreshExams, sec, secName, studentsOf, semUnits, outcomesOfUnits, toolName, W,
     buildShell, fillShell, view, route, go, every, wireLogin, openSearch, NAV };
 })();

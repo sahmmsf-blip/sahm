@@ -126,7 +126,7 @@
     const open = h.exams.filter((x) => x.is_open), up = p.upcoming || [];
     const outs = allOutcomes(), measured = outs.filter((o) => o.level), mastered = measured.filter((o) => o.level >= 3).length;
     let out = `<section class="greet"><div style="position:relative;z-index:1">
-      <h1>${greet()}، ${esc(firstName(h.name))}</h1>
+      <h1 class="gr-h">${D.rank && D.rank.photo ? avatar(D.rank, 46) : ""}<span>${greet()}، ${esc(firstName(h.name))}</span></h1>
       <div class="sub">${esc([me.section && "شعبة " + me.section, me.subject, me.grade].filter(Boolean).join(" · "))}</div></div>
       ${marksHero()}
       <div class="kpis sm">

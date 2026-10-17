@@ -22,7 +22,7 @@
         active.map((s) => row(s, secOpts)).join("") + "</tbody></table></div>";
       if (arch.length) h += `<details class="card pad" style="margin-top:12px"><summary style="cursor:pointer;font-weight:700">الطلبة المؤرشفون (${arch.length})</summary>
         <p class="tiny">حُذفوا ولهم سجلات، فحُفظت سجلاتهم كدليل ولا يظهرون في الكشوف.</p>` +
-        arch.map((s) => `<div class="row sp" style="padding:7px 0;border-bottom:1px solid var(--line)"><span>${s.serial_no} · ${esc(s.full_name)}</span><button class="btn sm outline" data-restore="${s.id}">استرجاع</button></div>`).join("") + "</details>";
+        arch.map((s) => `<div class="row sp" style="padding:7px 0;border-bottom:1px solid var(--line)"><span>${s.serial_no} · ${T.av(s.id, 22)}${esc(s.full_name)}</span><button class="btn sm outline" data-restore="${s.id}">استرجاع</button></div>`).join("") + "</details>";
       el.innerHTML = h;
       photoReview(el);
       const dirty = () => (el.querySelector("#pDirty").textContent = "• توجد تعديلات غير محفوظة");
@@ -86,7 +86,7 @@
     el.querySelector(".vhead").after(box);
     box.querySelectorAll("[data-ok]").forEach((b) => (b.onclick = async () => {
       const it = b.closest(".phi"), id = it.dataset.id, yes = b.dataset.ok === "1";
-      try { await T.rpc("t_photo_review", { p_student: id, p_ok: yes }); it.remove(); S.photoPending = (S.photoPending || []).filter((x) => x !== id);
+      try { await T.rpc("t_photo_review", { p_student: id, p_ok: yes }); if (yes) S.photos[id] = it.querySelector("img").src; it.remove(); S.photoPending = (S.photoPending || []).filter((x) => x !== id);
         toast(yes ? "اعتُمدت الصورة" : "رُفضت الصورة — تبقى صورته السابقة إن وُجدت"); if (!box.querySelector(".phi")) box.remove(); }
       catch (e) { toast(e.message, true); }
     }));
@@ -95,7 +95,7 @@
   function row(s, secOpts) {
     const ready = s.national_id && s.birth_date, rk = s.id ? B().risk(s) : null;
     return `<tr ${s.id ? `data-id="${s.id}"` : 'data-new="1"'}><td><input class="input mono cS" inputmode="numeric" value="${s.serial_no == null ? "" : s.serial_no}" style="width:62px"></td>
-      <td><div class="row" style="gap:6px">${rk && rk.score >= 35 ? '<span class="stud"><span class="flag" title="يحتاج دعمًا"></span></span>' : ""}<input class="input cName" value="${esc(s.full_name || "")}" placeholder="اسم الطالب الرباعي" style="min-width:210px"></div></td>
+      <td><div class="row" style="gap:6px">${s.id ? T.av(s.id, 28) : ""}${rk && rk.score >= 35 ? '<span class="stud"><span class="flag" title="يحتاج دعمًا"></span></span>' : ""}<input class="input cName" value="${esc(s.full_name || "")}" placeholder="اسم الطالب الرباعي" style="min-width:210px"></div></td>
       <td><input class="input mono cN" inputmode="numeric" dir="ltr" value="${esc(s.national_id || "")}" style="width:140px"></td>
       <td><input class="input cD" type="date" value="${esc(s.birth_date || "")}"></td>
       <td><select class="input cSec" style="min-width:130px">${secOpts}</select></td>
@@ -151,7 +151,7 @@
       const evs = S.events.filter((e) => e.student_id === id).sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""));
       let pos = 0, neg = 0; evs.forEach((e) => { const t = S.eventTypes.find((x) => x.id === e.event_type_id); if (t) t.direction > 0 ? pos++ : neg++; });
       const pct = r.total != null ? Math.round((r.total / c.max) * 100) : 0;
-      let h = `<div class="card pad"><div class="prof-head"><span class="avatar">${esc(U.firstName(st.full_name).slice(0, 1))}</span>
+      let h = `<div class="card pad"><div class="prof-head">${T.avBox(st, 64)}
           <div class="grow"><h2 style="font-size:21px">${esc(st.full_name)}</h2><div class="tiny">${esc(sec.name || "")} · الرقم التسلسلي ${st.serial_no} · ${st.national_id && st.birth_date ? '<span class="pill open">جاهز لدخول المنصة</span>' : '<span class="pill bad">بيانات الدخول ناقصة</span>'}${st.is_active ? "" : ' · <span class="pill draft">مؤرشف</span>'} · <span id="sTier" class="tiny"></span></div></div>
           <div class="ring" style="--p:${pct}"><div><div><b class="num">${T.nf(r.total, 1)}</b><span class="tiny">من ${T.nf(c.max)}</span></div></div></div>
           <div class="toolbar"><button class="btn primary" id="sRep">${ic("printer", "sm")}تقرير الطالب</button><a class="btn outline" href="#people">الشعبة</a></div></div></div>
@@ -178,11 +178,11 @@
       el.innerHTML = h;
       el.querySelector("#sRep").onclick = () => T.records.studentReport(st);
       T.q(T.sb.from("student_photos").select("photo,status").eq("student_id", id)).then((r) => {
-        const ph = r && r[0], av = el.querySelector(".prof-head .avatar"); if (!av || !ph) return;
-        if (ph.photo) { av.innerHTML = `<img src="${esc(ph.photo)}" alt="">`; av.classList.add("has-ph");
+        const ph = r && r[0], head = el.querySelector(".prof-head"); if (!head || !ph) return;
+        if (ph.photo) { S.photos[id] = ph.photo; head.firstElementChild.outerHTML = T.avBox(st, 64);
           const bt = document.createElement("button"); bt.className = "btn sm ghost"; bt.textContent = "إزالة الصورة"; bt.onclick = async () => {
             if (!(await U.confirmSheet("إزالة صورة الطالب؟", "تختفي من ملفه وبطاقة الشرف، ويمكنه رفع صورة جديدة تنتظر موافقتك.", "أزل", true))) return;
-            try { await T.rpc("t_photo_remove", { p_student: id }); toast("أُزيلت الصورة"); T.route(); } catch (e) { toast(e.message, true); } };
+            try { await T.rpc("t_photo_remove", { p_student: id }); delete S.photos[id]; toast("أُزيلت الصورة"); T.route(); } catch (e) { toast(e.message, true); } };
           el.querySelector(".prof-head .toolbar").appendChild(bt); }
         if (ph.status === "pending") { const p = document.createElement("a"); p.href = "#people"; p.className = "pill gold"; p.textContent = "صورة جديدة بانتظار موافقتك"; el.querySelector(".prof-head .grow").appendChild(p); }
       }).catch(() => {});

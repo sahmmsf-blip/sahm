@@ -408,7 +408,7 @@ table.t .num{text-align:center;font-variant-numeric:tabular-nums}
 .rankw.is-top{border-color:#f2c94c;background:radial-gradient(120% 90% at 50% 0%,rgba(251,191,36,.20),transparent 60%),var(--surface)}
 .rankw-h{display:flex;align-items:center;gap:12px;position:relative;z-index:1}.rankw-h b{display:block;font-size:15.5px}.rankw-h .go{color:var(--ink-3)}
 .rk-pair{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px;position:relative;z-index:1}
-.rk{display:grid;justify-items:center;gap:6px;text-align:center}
+.rk-pair .rk{display:grid;justify-items:center;gap:6px;text-align:center}
 .rk-t{font-size:12.5px;font-weight:700;color:var(--ink-2)}
 .rk-disc{position:relative;width:128px;height:128px;border-radius:50%;display:grid;place-items:center;align-content:center;gap:1px;color:#fff;
   background:var(--rk-bg);box-shadow:inset 0 2px 6px rgba(255,255,255,.45),inset 0 -8px 18px rgba(0,0,0,.22),0 10px 24px -10px rgba(0,0,0,.45);
@@ -471,3 +471,4 @@ table.t .num{text-align:center;font-variant-numeric:tabular-nums}
 .tag{display:inline-flex;align-items:center;gap:4px;font-size:12px;border-radius:999px;padding:3px 10px;white-space:nowrap}
 .tag.ok{background:var(--ok);color:#fff}.tag.me{background:var(--surface-2);color:var(--ink-2);border:1px solid var(--line-2)}
 .rk-disc>:not(.confetti){position:relative;z-index:1}
+.gr-h{display:flex;align-items:center;gap:12px}.gr-h .av-img{box-shadow:0 0 0 2px rgba(255,255,255,.6)}
