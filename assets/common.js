@@ -161,6 +161,13 @@
     return (d > 0 ? "بعد " : "قبل ") + s;
   }
 
+  // رسائل المعلم الافتراضية حسب ترتيب الطالب (يعدّلها المعلم من الإعدادات)
+  const HONOR = {
+    top: "أنت من نخبة شعبتك، وهذا المركز ثمرة جهدك والتزامك. حافظ على مستواك، ونافس نفسك قبل غيرك؛ فالقمة تتّسع دائمًا لمن يواصل، وأنا فخور بك.",
+    mid: "أنت قريب جدًّا من العشرة الأوائل! نتاج واحد تتقنه كل أسبوع، ومراجعة أخطائك في كل كويز، كفيلان برفع ترتيبك بوضوح. أنا أثق بقدرتك.",
+    low: "كل متفوّق بدأ من خطوة. ابدأ بالنتاجات التي لم تتقنها بعد، واستفد من كل أداة كفرصة جديدة، وستُفاجأ بتقدّمك. أنا معك خطوة بخطوة."
+  };
+
   window.U = { $, esc, L, fmtDT, fmtTime, toLocalInput, fromLocalInput, mmss, digits, toast, openSheet, closeSheet,
-               confirmSheet, rpcFetch, cycleTheme, download, csv, SKINS, applySkin, initSkin, skinPicker, spin, greet, firstName, ago, TZ };
+               confirmSheet, rpcFetch, cycleTheme, download, csv, SKINS, applySkin, initSkin, skinPicker, spin, greet, firstName, ago, TZ, HONOR };
 })();

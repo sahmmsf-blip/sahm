@@ -38,6 +38,7 @@
   table.r td.wrap{text-align:right;white-space:normal;max-width:420px;font-size:11.5px}
   table.r td.b{font-weight:700}
   table.r td.dim{color:#9ca3af}
+  table.r td.wd{font-size:10.5px;padding:3px 3px;white-space:nowrap}
   table.r thead{display:table-header-group}
   table.r tr{break-inside:avoid}
   .rn{font-size:11px;color:#374151;margin-top:8px;line-height:1.7;max-width:1100px}
@@ -147,11 +148,11 @@
     } else if (kind === "checklist") {
       Object.assign(M, header(secId, "قائمة الشطب", "إتقان النتاجات — " + scopeLabel(secId)));
       M.cols = base.slice();
-      outs.forEach((o) => M.cols.push({ h: "ن" + o.seq + ": " + o.text, vt: true, w: 4.5, dark: DARK.u[o.ui % 6], light: LIGHT.u[o.ui % 6], g: "l" + o.lesson.id, gt: "الدرس " + o.lesson.seq }));
-      M.cols.push({ h: "المتقن (٣ فأعلى)", w: 10, dark: DARK.total, light: LIGHT.total, b: true });
+      outs.forEach((o) => M.cols.push({ h: "ن" + o.seq + ": " + o.text, vt: true, w: 8, dark: DARK.u[o.ui % 6], light: LIGHT.u[o.ui % 6], g: "l" + o.lesson.id, gt: "الدرس " + o.lesson.seq }));
+      M.cols.push({ h: "المتقن", s: "متمكّن فأعلى", w: 10, dark: DARK.total, light: LIGHT.total, b: true });
       studs.forEach((s) => { const r = calcRows.get(s.id); let ok = 0; const row = [cell(s.serial_no), cell(s.full_name)];
-        outs.forEach((o) => { const L = r.lv[o.id]; if (L >= 3) ok++; row.push(lvCell(L, o.ui)); }); row.push(cell(ok + " / " + outs.length, LIGHT.total, { b: true })); M.rows.push(row); });
-      M.note = "المستويات: ١ مبتدئ · ٢ نامٍ · ٣ متمكّن · ٤ متميّز. (·) لم يُقَس بعد. الفترة: " + rangeLabel() + ".";
+        outs.forEach((o) => { const L = r.lv[o.id]; if (L >= 3) ok++; row.push(L ? cell(T.LV[L], LVF[L], { color: LVC[L], b: true, word: true }) : cell("·", LIGHT.u[o.ui % 6], { dim: true })); }); row.push(cell(ok + " / " + outs.length, LIGHT.total, { b: true })); M.rows.push(row); });
+      M.note = "المستويات من الأدنى: مبتدئ · نامٍ · متمكّن · متميّز. (·) لم يُقَس بعد. «المتقن» = متمكّن فأعلى. الفترة: " + rangeLabel() + ".";
     } else if (kind === "evidence") {
       Object.assign(M, header(secId, "سجل قياس النتاجات بأدوات التقويم", scopeLabel(secId) + " · " + rangeLabel()));
       M.cols = base.concat([{ h: "النتاج", w: 46, dark: DARK.info, light: LIGHT.info, wrap: true }, { h: "الأداة", w: 16, dark: DARK.first, light: LIGHT.first },
@@ -214,7 +215,7 @@
     h += "</tr>";
     if (hasG) h += "<tr>" + M.cols.filter((c) => c.g).map((c) => `<th class="${c.vt ? "vt" : ""}" style="background:${hex(c.dark)}">${c.vt ? `<div>${esc(c.h)}</div>` : esc(c.h)}${c.s ? `<small>${esc(c.s)}</small>` : ""}</th>`).join("") + "</tr>";
     h += "</thead><tbody>";
-    M.rows.forEach((r, ri) => { h += "<tr>" + r.map((x, i) => { const c = M.cols[i] || {}, cls = [c.nm ? "nm" : "", x.wrap || c.wrap ? "wrap" : "", x.b || c.b ? "b" : "", x.dim ? "dim" : ""].join(" ");
+    M.rows.forEach((r, ri) => { h += "<tr>" + r.map((x, i) => { const c = M.cols[i] || {}, cls = [c.nm ? "nm" : "", x.wrap || c.wrap ? "wrap" : "", x.b || c.b ? "b" : "", x.dim ? "dim" : "", x.word ? "wd" : ""].join(" ");
       const bg = x.fill || c.light || (ri % 2 ? "F8FAFC" : "FFFFFF");
       return `<td class="${cls}" style="background:${hex(bg)}${x.color ? ";color:" + hex(x.color) : ""}">${esc(x.v)}</td>`; }).join("") + "</tr>"; });
     if (!M.rows.length) h += `<tr><td colspan="${M.cols.length}" style="padding:18px;color:#6b7280">لا بيانات ضمن هذه الفلاتر.</td></tr>`;

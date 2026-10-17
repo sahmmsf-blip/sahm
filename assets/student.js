@@ -1,6 +1,6 @@
 // صفحة الطالب: موقع + دخول + لوحة مقسّمة إلى أقسام + أداء الاختبار + النتيجة
 (function () {
-  const { $, esc, L, fmtDT, mmss, digits, toast, openSheet, closeSheet, confirmSheet, rpcFetch, initSkin, skinPicker, spin, greet, firstName, ago } = U;
+  const { $, esc, L, fmtDT, mmss, digits, toast, openSheet, closeSheet, confirmSheet, rpcFetch, initSkin, skinPicker, spin, greet, firstName, ago, HONOR } = U;
   const KIND0 = { quiz: "كويز", first_written: "الاختبار الأول", final_written: "الاختبار النهائي", practice: "تدريبي" };
   const KIND = new Proxy({}, { get: (_, k) => KIND0[k] || "" });
   const kindOf = (x) => (x.cat === "worksheet" ? "ورقة عمل" : KIND0[x.kind] || "") + (x.paper ? " · ورقية (في الصف)" : "");
@@ -85,26 +85,27 @@
   // ===================== اللوحة =====================
   async function loadDash(silent) {
     let h, p;
-    let rc;
-    try { [h, p, rc] = await Promise.all([call("student_home"), call("student_profile"), call("student_records").catch(() => null)]); }
+    let rc, rk;
+    try { [h, p, rc, rk] = await Promise.all([call("student_home"), call("student_profile"), call("student_records").catch(() => null), call("student_rank").catch(() => null)]); }
     catch (e) { if (!silent) toast(e.message, true); throw e; }
     if (!h.ok) { toast(h.error, true); return; }
-    D.home = h; D.prof = p && p.ok ? p : { me: {}, history: [], stats: {}, upcoming: [], units: [] }; D.rec = rc && rc.ok ? rc : { ok: false };
-    $("hName").textContent = h.name || ""; $("hAv").textContent = firstName(h.name).slice(0, 1) || "؟";
+    D.home = h; D.prof = p && p.ok ? p : { me: {}, history: [], stats: {}, upcoming: [], units: [] }; D.rec = rc && rc.ok ? rc : { ok: false }; D.rank = rk && rk.ok ? rk : null;
+    $("hName").textContent = h.name || ""; setHeadAv();
     route();
     if (!silent) show("vHome");
   }
   window.addEventListener("hashchange", () => { if (D.home && !X.a) { route(); window.scrollTo(0, 0); } });
   function route() {
     const k = (location.hash || "").replace("#/", "");
-    const fn = { exams: pExams, upcoming: pUpcoming, results: pResults, outcomes: pOutcomes, behavior: pBehavior, tips: pTips, me: pMe }[k];
+    const fn = { exams: pExams, upcoming: pUpcoming, results: pResults, outcomes: pOutcomes, behavior: pBehavior, tips: pTips, me: pMe, rank: pRank }[k];
     $("dash").innerHTML = fn ? fn() : dashHome();
-    wire(); if (k === "results") wireResults(); if (k === "behavior") wireBehavior(); if (k === "tips" || !k) wireTips(); clearInterval(D.cdT); D.cdT = setInterval(tickCountdowns, 30000);
+    wire(); wirePhoto(); if (k === "results") wireResults(); if (k === "behavior") wireBehavior(); if (k === "tips" || !k) wireTips(); clearInterval(D.cdT); D.cdT = setInterval(tickCountdowns, 30000);
   }
   function wire() {
     const box = $("dash");
     box.querySelectorAll("[data-start]").forEach((b) => (b.onclick = () => startExam(b.dataset.start, b.dataset.mode, b.dataset.running === "1")));
     box.querySelectorAll("[data-res]").forEach((b) => (b.onclick = () => openResult(b.dataset.res)));
+    box.querySelectorAll("[data-rev]").forEach((b) => (b.onclick = () => openReview(b.dataset.rev)));
     box.querySelectorAll("[data-go]").forEach((b) => (b.onclick = () => { location.hash = b.dataset.go ? "#/" + b.dataset.go : ""; }));
     box.querySelectorAll("[data-skin-open]").forEach((b) => (b.onclick = skinPicker));
   }
@@ -134,6 +135,7 @@
         <div class="kpi"><b class="num">${st.best != null ? Math.round(st.best) + "٪" : "—"}</b><span>أفضل نتيجة</span></div>
         <div class="kpi"><b class="num">${measured.length ? mastered + "/" + measured.length : "—"}</b><span>نتاجات أتقنتها</span></div>
       </div></section>`;
+    out += rankBox();
 
     // اختبار مفتوح الآن: في الواجهة مباشرة
     open.forEach((x) => {
@@ -156,7 +158,8 @@
       ["results", "award", "نتائجي", D.rec && D.rec.marks && D.rec.marks.total != null ? "مجموعك حتى الآن " + nf(D.rec.marks.total) + " · وكل سجلاتك" : lastRes ? "آخر نتيجة: " + lastRes.score + "/" + lastRes.total : "علاماتك وكل سجلات التقويم", ((D.rec && D.rec.results) || p.history || []).length],
       ["behavior", "flag", "سلوكي وحضوري", "الحضور والمشاركة والسلوك ببطاقات تفصيلية", D.rec && D.rec.events ? D.rec.events.length : null],
       ["outcomes", "target", "خريطة نتاجاتي", measured.length ? "مستواك في " + measured.length + " نتاجًا من " + outs.length : "مستواك في كل نتاج من الكتاب", null],
-      ["me", "user", "ملفّي", "بياناتك وشعبتك ومعلّمك", null],
+      ["rank", "award", "ترتيبي وبطاقة الشرف", D.rank ? rankLine(D.rank) : "ترتيبك داخل شعبتك يتحدّث لحظيًّا", null],
+      ["me", "user", "ملفّي", "صورتك وبياناتك وشعبتك ومعلّمك", null],
       ["", "palette", "المظهر", "اختر السمة التي تريح عينيك", null, false, true]
     ];
     out += '<div class="tiles">' + tiles.map(([k, i, t, s, c, hot, skin]) =>
@@ -334,7 +337,7 @@
     h += rs.length ? '<div class="card list">' + rs.map((x) => { const p = x.total ? pct(x.score, x.total) : null;
       return `<div class="li"><div><b>${esc(x.title)}</b><div class="tiny">${esc(kindOf(x))} · ${esc(fmtDT(x.at))}${x.weighted ? " · علامة موزونة" : ""}</div>
           ${p != null ? `<div class="bar" style="margin-top:8px;max-width:340px"><i style="width:${p}%"></i></div>` : ""}</div>
-        <div style="text-align:end">${p != null ? `<div class="score num">${x.score}/${x.total}</div>` : "—"}${x.details ? `<button class="btn sm ghost" data-res="${x.id}">التفاصيل</button>` : ""}</div></div>`; }).join("") + "</div>"
+        <div style="text-align:end">${p != null ? `<div class="score num">${x.score}/${x.total}</div>` : "—"}${x.details ? `<button class="btn sm ghost" data-res="${x.id}">التفاصيل</button>` : ""}${x.review ? `<button class="btn sm outline" data-rev="${x.id}">${ic("check", "sm")}الإجابات الصحيحة</button>` : ""}</div></div>`; }).join("") + "</div>"
       : emptyBox("file", "لا نتائج بعد", "تظهر هنا كل أداة بعد انتهائها.");
     const ts = R.tools || [];
     h += '<div class="lbl" style="margin:22px 0 10px">سجل أدوات التقويم على النتاجات</div>';
@@ -425,12 +428,188 @@
 
   function pMe() {
     const me = D.prof.me || {};
-    return crumb("ملفّي") + `<div class="card pad"><div class="row" style="margin-bottom:18px"><span class="avatar" style="width:56px;height:56px;font-size:22px">${esc(firstName(me.name).slice(0, 1))}</span>
+    return crumb("ملفّي") + `<div class="card pad"><div class="row" style="margin-bottom:18px">${avatar({ name: me.name || D.home.name, photo: D.rank && D.rank.photo }, 56)}
       <div><h3 style="font-size:19px">${esc(me.name || D.home.name)}</h3><div class="tiny">الرقم التسلسلي ${esc(me.serial || "—")}</div></div></div>
       <dl class="kv"><dt>الشعبة</dt><dd>${esc(me.section || "—")}</dd><dt>المبحث</dt><dd>${esc(me.subject || "—")}</dd>
       <dt>الصف</dt><dd>${esc(me.grade || "—")}</dd><dt>العام الدراسي</dt><dd>${esc(me.year || "—")} · الفصل ${esc(me.semester || "—")}</dd>
       <dt>المعلّم</dt><dd>${esc(me.teacher || "—")}</dd><dt>المدرسة</dt><dd>${esc(me.school || "—")}</dd></dl></div>
-      <p class="tiny" style="margin-top:12px">إذا كان في بياناتك خطأ فأبلغ معلّمك ليصحّحه.</p>`;
+      <p class="tiny" style="margin-top:12px">إذا كان في بياناتك خطأ فأبلغ معلّمك ليصحّحه.</p>` + photoCard();
+  }
+
+  // ===================== ترتيبي وبطاقة الشرف =====================
+  const ORD = ["", "الأول", "الثاني", "الثالث", "الرابع", "الخامس", "السادس", "السابع", "الثامن", "التاسع", "العاشر"];
+  const TENS = { 2: "العشرون", 3: "الثلاثون", 4: "الأربعون", 5: "الخمسون", 6: "الستون", 7: "السبعون", 8: "الثمانون", 9: "التسعون" };
+  function ordinal(n) {
+    if (!n || n >= 100) return String(n || "");
+    if (n <= 10) return ORD[n];
+    if (n === 11) return "الحادي عشر";
+    if (n < 20) return ORD[n - 10] + " عشر";
+    const t = Math.floor(n / 10), u = n % 10;
+    return u ? (u === 1 ? "الحادي" : ORD[u]) + " و" + TENS[t] : TENS[t];
+  }
+  const BANDS = ["top", "mid", "low"];
+  const bestBand = (R) => [R.second && R.second.band, R.total && R.total.band].filter(Boolean).sort((a, b) => BANDS.indexOf(a) - BANDS.indexOf(b))[0] || null;
+  function rankLine(R) {
+    const b = bestBand(R), k = [R.second, R.total].filter((x) => x && x.rank).sort((a, b2) => a.rank - b2.rank)[0];
+    if (b === "top") return "أنت من العشرة الأوائل — المركز " + ordinal(k.rank) + " · بطاقة الشرف";
+    if (b === "mid" && k) return "المركز " + ordinal(k.rank) + " — " + (k.rank - 10 === 1 ? "مرتبة واحدة" : (k.rank - 10) + " مراتب") + " عن العشرة الأوائل";
+    if (b === "low") return "أنت قادر على التقدّم — افتح لترى رسالة معلّمك";
+    return "يظهر ترتيبك بعد أول علامة";
+  }
+  function rankTheme(k) {
+    if (!k || !k.band) return "linear-gradient(135deg,#9aa4b2,#5b6575)";
+    if (k.band === "low") return "linear-gradient(135deg,#fdba74,#f97316 55%,#c2410c)";
+    const r = k.rank;
+    if (r === 1) return "linear-gradient(135deg,#fff1b8,#fbbf24 45%,#b7791f)";
+    if (r === 2) return "linear-gradient(135deg,#ffffff,#cbd5e1 45%,#64748b)";
+    if (r === 3) return "linear-gradient(135deg,#ffe4c7,#e08a3c 50%,#8a4a14)";
+    if (k.band === "top") { const h = 258 - (r - 4) * 8; return `linear-gradient(135deg,hsl(${h} 85% 70%),hsl(${h} 62% 46%) 55%,hsl(${h + 8} 70% 30%))`; }
+    const lowStart = k.n - Math.floor(k.n / 3), p = Math.min(1, Math.max(0, (r - 11) / Math.max(1, lowStart - 11))), h = 166 + p * 46;
+    return `linear-gradient(135deg,hsl(${h} 70% 58%),hsl(${h} 72% 38%) 55%,hsl(${h + 10} 75% 26%))`;
+  }
+  const STAR = '<svg class="rk-star" viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="stg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff7c2"/><stop offset=".5" stop-color="#fbbf24"/><stop offset="1" stop-color="#b45309"/></linearGradient></defs><path d="M12 1.8l3 6.6 7.2.7-5.4 4.8 1.6 7.1L12 17.3 5.6 21l1.6-7.1L1.8 9.1 9 8.4z" fill="url(#stg)" stroke="#92400e" stroke-width=".7" stroke-linejoin="round"/></svg>';
+  const CONF_C = ["#fbbf24", "#f59e0b", "#fde68a", "#60a5fa", "#f472b6", "#34d399", "#a78bfa", "#ffffff"];
+  function confetti(n) {
+    let h = '<span class="confetti" aria-hidden="true">';
+    for (let i = 0; i < (n || 22); i++) {
+      const a = Math.random() * Math.PI - Math.PI, d = 70 + Math.random() * 120;
+      h += `<i style="--x:${Math.round(Math.cos(a) * d)}px;--y:${Math.round(Math.sin(a) * d * 0.9)}px;--r:${Math.round(Math.random() * 720 - 360)}deg;--d:${(Math.random() * 2.6).toFixed(2)}s;--c:${CONF_C[i % CONF_C.length]};--w:${4 + Math.round(Math.random() * 4)}px"></i>`;
+    }
+    return h + "</span>";
+  }
+  function avatar(R, size) {
+    const z = size || 44;
+    return R && R.photo ? `<img class="av-img" src="${esc(R.photo)}" alt="" style="width:${z}px;height:${z}px">`
+      : `<span class="avatar" style="width:${z}px;height:${z}px;font-size:${Math.round(z * 0.42)}px">${esc(firstName((R && R.name) || "").slice(0, 1) || "؟")}</span>`;
+  }
+  function setHeadAv() {
+    const R = D.rank, el = $("hAv"); if (!el) return;
+    if (R && R.photo) { el.innerHTML = `<img src="${esc(R.photo)}" alt="">`; el.classList.add("has-ph"); }
+    else { el.textContent = firstName((D.home && D.home.name) || "").slice(0, 1) || "؟"; el.classList.remove("has-ph"); }
+  }
+  function medal(k, title) {
+    const top = k && k.band === "top";
+    let inner;
+    if (!k || !k.band) inner = `<b class="rk-n" style="font-size:26px">—</b><span class="rk-o">لم يُقَس بعد</span>`;
+    else if (k.band === "low") inner = `<span class="rk-ic">${ic("spark", "lg")}</span><span class="rk-o">انطلق!</span><small>الصعود يبدأ الآن</small>`;
+    else inner = `<div class="rk-row">${top ? STAR : ""}<b class="rk-n num">${k.rank}</b></div><span class="rk-o">المركز ${ordinal(k.rank)}${k.tie ? " (مكرّر)" : ""}</span><small>من ${k.n} طالبًا</small>`;
+    const up = k && k.delta > 0 ? `<em class="rk-up">▲ صعدت ${k.delta === 1 ? "مرتبة واحدة" : k.delta + " مراتب"}</em>` : "";
+    return `<div class="rk ${top ? "is-top" : ""} ${k && k.band ? "b-" + k.band : ""} ${top && k.rank <= 3 ? "m" + k.rank : ""}"><span class="rk-t">${title}</span>
+      <div class="rk-disc" style="--rk-bg:${rankTheme(k)}">${top ? confetti(14) : ""}${inner}</div>${up}</div>`;
+  }
+  function rankBox() {
+    const R = D.rank; if (!R) return "";
+    const b = bestBand(R), top = b === "top";
+    return `<button class="rankw ${top ? "is-top" : ""}" data-go="rank">${top ? confetti(26) : ""}
+      <div class="rankw-h">${avatar(R, 46)}<div class="grow"><b>${top ? "بطاقة الشرف — " : ""}ترتيبي في شعبة ${esc(R.section || "")}</b>
+        <span class="tiny">${top ? "أنت من العشرة الأوائل! افتح بطاقتك ورسالة معلّمك" : b === "mid" ? "قريب من العشرة الأوائل — افتح رسالة معلّمك" : b === "low" ? "معلّمك يؤمن بقدرتك — افتح رسالته" : "يتحدّث لحظيًّا مع كل علامة"}</span></div>
+        <span class="go">${ic("left", "sm")}</span></div>
+      <div class="rk-pair">${medal(R.second, "النتاجات · التقويم الثاني")}${medal(R.total, "المجموع الكلي")}</div></button>`;
+  }
+  const todayAr = () => new Date().toLocaleDateString("ar-JO", { day: "numeric", month: "long", year: "numeric" });
+  function pRank() {
+    const R = D.rank;
+    let h = crumb("ترتيبي", "ترتيبك داخل شعبتك فقط — يتحدّث لحظيًّا مع كل قياس وعلامة");
+    if (!R) return h + emptyBox("award", "تعذّر تحميل ترتيبك", "حدّث الصفحة.");
+    const b = bestBand(R), msg = (R.msgs || {})[b || "mid"] || HONOR[b || "mid"];
+    if (b === "top") {
+      const line = (k, t) => k && k.band === "top" ? `<span class="hr-chip">${STAR}المركز ${ordinal(k.rank)}${k.tie ? " (مكرّر)" : ""} في ${t}</span>` : "";
+      h += `<div class="honor">${confetti(40)}<div class="honor-in">
+        <div class="honor-rib">بطاقة الشرف</div>
+        <div class="honor-ph">${avatar(R, 104)}</div>
+        <h2>${esc(R.name)}</h2><div class="tiny">${esc([R.section && "شعبة " + R.section, R.school].filter(Boolean).join(" · "))}</div>
+        <div class="honor-ranks">${line(R.second, "النتاجات")}${line(R.total, "المجموع الكلي")}</div>
+        <blockquote>${esc(msg)}</blockquote>
+        <div class="honor-sig"><span>معلّم المادة: <b>${esc(R.teacher || "")}</b></span><span>${esc(todayAr())}</span></div>
+        ${R.photo ? "" : '<div class="tiny" style="margin-top:10px">أضف صورتك من الأسفل لتظهر على بطاقتك.</div>'}</div></div>`;
+    } else {
+      const k = [R.second, R.total].filter((x) => x && x.rank).sort((a, c) => a.rank - c.rank)[0];
+      const up = [R.second, R.total].map((x) => (x && x.delta > 0 ? x.delta : 0)).reduce((a, c) => Math.max(a, c), 0);
+      h += `<div class="motiv ${b ? "b-" + b : ""}"><div class="mv-ic">${ic(b === "low" ? "spark" : "target", "lg")}</div>
+        <h2>${b === "mid" ? "أنت قريب من العشرة الأوائل" : b === "low" ? "أنت قادر على التقدّم" : "يظهر ترتيبك بعد أول علامة"}</h2>
+        ${b === "mid" && k ? `<p>المركز ${ordinal(k.rank)} — تفصلك ${k.rank - 10 === 1 ? "مرتبة واحدة" : k.rank - 10 + " مراتب"} عن العشرة الأوائل.</p>` : ""}
+        ${up ? `<p class="mv-up">▲ صعدت ${up === 1 ? "مرتبة واحدة" : up + " مراتب"} منذ زيارتك السابقة — استمر!</p>` : ""}
+        ${b ? `<blockquote>${esc(msg)}</blockquote><div class="honor-sig"><span>معلّم المادة: <b>${esc(R.teacher || "")}</b></span></div>` : ""}
+        <div class="row wrap" style="justify-content:center;margin-top:14px"><button class="btn primary" data-go="tips">${ic("spark", "sm")}توصياتي لأرفع ترتيبي</button><button class="btn outline" data-go="outcomes">خريطة نتاجاتي</button></div></div>`;
+    }
+    h += `<div class="card pad" style="margin-top:16px"><div class="rk-pair big">${medal(R.second, "ترتيبي في النتاجات (التقويم الثاني)")}${medal(R.total, "ترتيبي في المجموع الكلي")}</div>
+      <div class="note" style="margin-top:14px;line-height:1.9"><b>كيف يُحسب؟</b> ترتيب النتاجات حسب علامة التقويم الثاني (متوسط إتقانك للنتاجات المقيسة).
+        وترتيب المجموع = الاختبار الأول + التقويم الثاني + النهائي، بما رُصد حتى الآن. المتساوون يأخذون المركز نفسه.
+        الترتيب داخل شعبتك فقط، ويتغيّر لحظيًّا مع كل علامة جديدة، ولا يرى أي طالب علامات غيره.</div></div>`;
+    return h + photoCard();
+  }
+
+  // ===================== صورتي (تظهر بعد موافقة المعلم) =====================
+  function photoCard() {
+    const R = D.rank; if (!R) return "";
+    const st = R.photo_status, msg = { pending: '<span class="pill soon">بانتظار موافقة معلّمك</span>', rejected: '<span class="pill warn">لم يوافق معلّمك على صورتك الأخيرة — جرّب صورة أوضح لوجهك</span>', approved: '<span class="pill open">معتمدة</span>' }[st] || "";
+    return `<div class="card pad" style="margin-top:16px"><h3 style="font-size:16px;margin-bottom:10px">${ic("user", "sm")} صورتي</h3>
+      <div class="row" style="gap:14px;align-items:center">${avatar(R, 72)}<div class="grow"><p class="tiny" style="margin:0 0 6px">تظهر صورتك في ملفك وفي بطاقة الشرف بعد موافقة معلّمك. اختر صورة واضحة لوجهك وبمظهر لائق.</p>${msg}</div></div>
+      <div class="row wrap" style="margin-top:12px"><button class="btn primary sm" id="phCam">${ic("user", "sm")}التقاط بالكاميرا</button><button class="btn outline sm" id="phGal">اختيار من الهاتف</button>
+        ${R.photo || st === "pending" ? '<button class="btn ghost sm" id="phRm">حذف صورتي</button>' : ""}</div>
+      <input type="file" accept="image/*" capture="user" id="phInCam" hidden><input type="file" accept="image/*" id="phInGal" hidden></div>`;
+  }
+  function shrink(file) {
+    return new Promise((ok, no) => {
+      if (file.type && !/^image\//.test(file.type)) return no(new Error("اختر ملف صورة"));
+      const url = URL.createObjectURL(file), img = new Image();
+      img.onload = () => {
+        const w = img.naturalWidth, h = img.naturalHeight, s = Math.min(w, h), Z = 360;
+        if (!s) { URL.revokeObjectURL(url); return no(new Error("تعذّرت قراءة الصورة")); }
+        const c = document.createElement("canvas"); c.width = c.height = Z;
+        const g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, Z, Z);
+        g.drawImage(img, (w - s) / 2, h > w ? (h - s) * 0.25 : 0, s, s, 0, 0, Z, Z); URL.revokeObjectURL(url);   // قصّ مربّع يميل للأعلى (الوجه)
+        let q = 0.85, d = c.toDataURL("image/jpeg", q);
+        while (d.length > 170000 && q > 0.4) { q -= 0.1; d = c.toDataURL("image/jpeg", q); }
+        ok(d);
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); no(new Error("نوع الصورة غير مدعوم — جرّب صورة أخرى")); };
+      img.src = url;
+    });
+  }
+  function wirePhoto() {
+    const cam = $("phInCam"), gal = $("phInGal"); if (!cam || !gal) return;
+    $("phCam").onclick = () => cam.click(); $("phGal").onclick = () => gal.click();
+    [cam, gal].forEach((inp) => (inp.onchange = async () => {
+      const f = inp.files && inp.files[0]; inp.value = ""; if (!f) return;
+      let data; try { data = await shrink(f); } catch (e) { toast(e.message, true); return; }
+      const b = openSheet(`<h3>هل هذه صورتك؟</h3><div style="display:grid;place-items:center;margin:10px 0"><img src="${data}" alt="" class="av-img" style="width:160px;height:160px"></div>
+        <p class="tiny" style="text-align:center">تُرسل إلى معلّمك، وتظهر بعد موافقته.</p><div class="row" style="margin-top:14px"><button class="btn primary grow" id="phSend">إرسال لمعلّمي</button><button class="btn ghost" id="phNo">إلغاء</button></div>`);
+      b.querySelector("#phNo").onclick = closeSheet;
+      b.querySelector("#phSend").onclick = async () => {
+        const bt = b.querySelector("#phSend"); spin(bt, true, "جارٍ الإرسال…");
+        try { const r = await call("student_photo_set", { p_data: data }); if (!r.ok) throw new Error(r.error);
+          closeSheet(); D.rank.photo_status = "pending"; toast("أُرسلت صورتك — تظهر بعد موافقة معلّمك"); route(); }
+        catch (e) { spin(bt, false); toast(e.message, true); }
+      };
+    }));
+    const rm = $("phRm");
+    if (rm) rm.onclick = async () => {
+      if (!(await confirmSheet("حذف صورتك؟", "تختفي من ملفك وبطاقة الشرف، ويمكنك رفع صورة جديدة متى شئت.", "احذف", true))) return;
+      try { const r = await call("student_photo_remove"); if (!r.ok) throw new Error(r.error); D.rank.photo = null; D.rank.photo_status = "none"; setHeadAv(); route(); toast("حُذفت صورتك"); }
+      catch (e) { toast(e.message, true); }
+    };
+  }
+
+  // ===================== الإجابات الصحيحة (بعد انتهاء وقت الأداة للجميع) =====================
+  async function openReview(att) {
+    let r;
+    try { r = await call("student_review", { p_attempt: att }); } catch (e) { toast(e.message, true); return; }
+    if (!r.ok) { toast(r.error, true); return; }
+    const n = r.items.length, right = r.items.filter((it) => it.opts.some((o) => o.ok && o.mine)).length, blank = r.items.filter((it) => !it.chosen).length;
+    $("rTitle").textContent = "الإجابات الصحيحة — " + r.title;
+    let h = `<div class="card pad"><div class="row sp wrap"><b>علامتك ${r.score}/${r.total}${r.weighted ? " (موزونة)" : ""}</b>
+      <span class="tiny">صحيحة ${right} · خاطئة ${n - right - blank} · بلا إجابة ${blank} — من ${n} سؤالًا</span></div>
+      <div class="tiny" style="margin-top:6px">راجع كل سؤال أخطأت فيه، وافهم لماذا الإجابة الصحيحة صحيحة؛ هذا أسرع طريق لرفع مستواك في النتاج.</div></div>`;
+    h += r.items.map((it, i) => {
+      const good = it.opts.some((o) => o.ok && o.mine);
+      return `<div class="card pad rv ${good ? "good" : it.chosen ? "bad" : "blank"}" style="margin-top:12px">
+        <div class="row sp"><span class="qnum">السؤال ${i + 1}${it.outcome ? " · " + esc(it.outcome) : ""}</span><span class="pill ${good ? "open" : it.chosen ? "warn" : "ended"}">${good ? "صحيحة" : it.chosen ? "خاطئة" : "لم تُجب"}</span></div>
+        <div class="stem">${esc(it.stem)}</div>${it.img ? `<img class="qimg" src="${esc(it.img)}" alt="">` : ""}
+        <div class="opts">${it.opts.map((o, j) => `<div class="opt rvo ${o.ok ? "is-ok" : ""} ${o.mine && !o.ok ? "is-bad" : ""}"><span class="L">${L[j]}</span><span class="grow">${esc(o.t)}</span>
+          ${o.ok ? `<b class="tag ok">${ic("check", "sm")}الصحيحة</b>` : ""}${o.mine ? '<b class="tag me">إجابتك</b>' : ""}</div>`).join("")}</div></div>`;
+    }).join("");
+    $("rBody").innerHTML = h; show("vResult");
   }
 
   // ===================== بدء الاختبار =====================

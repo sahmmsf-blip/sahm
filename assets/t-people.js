@@ -24,6 +24,7 @@
         <p class="tiny">حُذفوا ولهم سجلات، فحُفظت سجلاتهم كدليل ولا يظهرون في الكشوف.</p>` +
         arch.map((s) => `<div class="row sp" style="padding:7px 0;border-bottom:1px solid var(--line)"><span>${s.serial_no} · ${esc(s.full_name)}</span><button class="btn sm outline" data-restore="${s.id}">استرجاع</button></div>`).join("") + "</details>";
       el.innerHTML = h;
+      photoReview(el);
       const dirty = () => (el.querySelector("#pDirty").textContent = "• توجد تعديلات غير محفوظة");
       const wire = (root) => {
         root.querySelectorAll(".cN,.cS").forEach((i) => (i.oninput = () => { i.value = digits(i.value).replace(/\D/g, ""); dirty(); }));
@@ -71,6 +72,26 @@
       };
     }
   });
+  // صور الطلبة بانتظار الموافقة: تظهر في ملفه وبطاقة الشرف بعد موافقة المعلم فقط
+  async function photoReview(el) {
+    if (!(S.photoPending || []).length) return;
+    let rows = []; try { rows = await T.q(T.sb.from("student_photos").select("student_id,pending").eq("status", "pending")); } catch (e) { return; }
+    if (!rows.length || !el.isConnected || !el.querySelector(".vhead")) return;
+    const box = document.createElement("div"); box.className = "card pad"; box.style.marginBottom = "12px"; box.id = "phBox";
+    box.innerHTML = `<h3 style="font-size:15px;margin-bottom:4px">${ic("user", "sm")} صور بانتظار موافقتك (${rows.length})</h3>
+      <p class="tiny">رفعها الطلبة من صفحاتهم. لا تظهر الصورة في ملف الطالب ولا في بطاقة الشرف إلا بعد موافقتك.</p><div class="phq">` +
+      rows.map((r) => { const st = S.stu[r.student_id] || {}, sc = S.sections.find((x) => x.id === st.section_id) || {};
+        return `<div class="phi" data-id="${r.student_id}"><img src="${esc(r.pending)}" alt="صورة ${esc(st.full_name || "")}"><b>${esc(st.full_name || "طالب")}</b><span class="tiny">${esc(sc.name || "")}</span>
+          <div class="row" style="gap:6px"><button class="btn sm primary" data-ok="1">${ic("check", "sm")}موافقة</button><button class="btn sm outline" data-ok="0">رفض</button></div></div>`; }).join("") + "</div>";
+    el.querySelector(".vhead").after(box);
+    box.querySelectorAll("[data-ok]").forEach((b) => (b.onclick = async () => {
+      const it = b.closest(".phi"), id = it.dataset.id, yes = b.dataset.ok === "1";
+      try { await T.rpc("t_photo_review", { p_student: id, p_ok: yes }); it.remove(); S.photoPending = (S.photoPending || []).filter((x) => x !== id);
+        toast(yes ? "اعتُمدت الصورة" : "رُفضت الصورة — تبقى صورته السابقة إن وُجدت"); if (!box.querySelector(".phi")) box.remove(); }
+      catch (e) { toast(e.message, true); }
+    }));
+  }
+
   function row(s, secOpts) {
     const ready = s.national_id && s.birth_date, rk = s.id ? B().risk(s) : null;
     return `<tr ${s.id ? `data-id="${s.id}"` : 'data-new="1"'}><td><input class="input mono cS" inputmode="numeric" value="${s.serial_no == null ? "" : s.serial_no}" style="width:62px"></td>
@@ -156,6 +177,15 @@
         </div></div>`;
       el.innerHTML = h;
       el.querySelector("#sRep").onclick = () => T.records.studentReport(st);
+      T.q(T.sb.from("student_photos").select("photo,status").eq("student_id", id)).then((r) => {
+        const ph = r && r[0], av = el.querySelector(".prof-head .avatar"); if (!av || !ph) return;
+        if (ph.photo) { av.innerHTML = `<img src="${esc(ph.photo)}" alt="">`; av.classList.add("has-ph");
+          const bt = document.createElement("button"); bt.className = "btn sm ghost"; bt.textContent = "إزالة الصورة"; bt.onclick = async () => {
+            if (!(await U.confirmSheet("إزالة صورة الطالب؟", "تختفي من ملفه وبطاقة الشرف، ويمكنه رفع صورة جديدة تنتظر موافقتك.", "أزل", true))) return;
+            try { await T.rpc("t_photo_remove", { p_student: id }); toast("أُزيلت الصورة"); T.route(); } catch (e) { toast(e.message, true); } };
+          el.querySelector(".prof-head .toolbar").appendChild(bt); }
+        if (ph.status === "pending") { const p = document.createElement("a"); p.href = "#people"; p.className = "pill gold"; p.textContent = "صورة جديدة بانتظار موافقتك"; el.querySelector(".prof-head .grow").appendChild(p); }
+      }).catch(() => {});
       T.loadTiers(st.section_id).then((m) => { const t = m[id], box = el.querySelector("#sTier"); if (!t || !box) return; const d = T.TIER[t.tier];
         box.innerHTML = `<span class="pill ${d.cls}" title="${esc(d.d)}">${d.sym} مستوى التمايز: ${d.n}</span> آخر معدل ${T.nf(t.avg, 1)}٪ من ${t.n} تقييمات`; });
       try {

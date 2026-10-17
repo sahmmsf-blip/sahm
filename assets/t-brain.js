@@ -118,6 +118,7 @@
       else if (a.go.startsWith("exam:")) { go = "#exam/" + a.go.slice(5); act = "فتح"; }
       out.push({ lvl: a.level, msg: a.msg, go, act, ic: a.level === "warn" ? "alert" : a.level === "info" ? "play" : "flag" });
     });
+    if ((S.photoPending || []).length) out.push({ lvl: "todo", msg: S.photoPending.length + " صورة طالب بانتظار موافقتك لتظهر في ملفه وبطاقة الشرف.", go: "#people", act: "راجع الصور", ic: "user" });
     if (sec) {
       const sm = secSummary(secId), now = new Date();
       if (isSchoolDay() && now.getHours() >= 8 && now.getHours() < 15 && !attTaken(secId, T.today()) && sm.studs.length)

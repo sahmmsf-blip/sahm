@@ -35,8 +35,13 @@
           <div class="note" style="margin-top:10px">يتطلّب الإرسال مفتاح خدمة Resend (مجاني) محفوظًا في Supabase باسم <b dir="ltr">RESEND_API_KEY</b>. إن لم يُضبط بعد، يبقى زر «Excel النتائج» في صفحة الاختبار متاحًا دائمًا.</div>
           <h3 style="font-size:16px;margin:20px 0 10px">${ic("file", "sm")} نسخة احتياطية</h3>
           <p class="tiny">ملف Excel واحد فيه الطلبة والقياسات والعلامات والحضور والرصد اليومي.</p>
-          <button class="btn outline" id="sBackup" style="margin-top:8px">تنزيل النسخة الاحتياطية</button></div></div>
-        <p class="tiny" style="text-align:center;margin-top:20px">منصة السهم العلمي للاختبارات الذكية وتقويم الأداء · الإصدار 3.0 — الدفتر الجانبي ومنصة الاختبارات في منظومة واحدة</p>`;
+          <button class="btn outline" id="sBackup" style="margin-top:8px">تنزيل النسخة الاحتياطية</button></div>
+        <div class="card pad" style="grid-column:1/-1"><h3 style="font-size:16px;margin-bottom:6px">${ic("award", "sm")} رسائلك للطلبة حسب ترتيبهم</h3>
+          <p class="tiny" style="margin-bottom:12px">تظهر باسمك في صفحة «ترتيبي» عند كل طالب: العشرة الأوائل ترى رسالة «بطاقة الشرف»، والوسط والأواخر رسالة تحفيز. يُرتَّب الطالب داخل شعبته فقط، والثلث الأخير لا يرى رقم ترتيبه.</p>
+          <div class="fields three">${[["top", "العشرة الأوائل (بطاقة الشرف)"], ["mid", "الوسط"], ["low", "الأواخر (بلا رقم ترتيب)"]].map(([k, t]) =>
+            `<label class="field"><span>${t}</span><textarea class="input hm" data-k="${k}" rows="5">${esc(((me.honor_msgs || {})[k]) || U.HONOR[k])}</textarea></label>`).join("")}</div>
+          <button class="btn sm ghost" id="sHonorReset" style="margin-top:8px">استعادة الرسائل الافتراضية</button></div></div>
+        <p class="tiny" style="text-align:center;margin-top:20px">منصة السهم العلمي للاختبارات الذكية وتقويم الأداء · الإصدار 3.6 — الدفتر الجانبي ومنصة الاختبارات في منظومة واحدة</p>`;
       const cap = () => { const m = +el.querySelector("#sMax").value || 0, p1 = +el.querySelector("#sP1").value || 0, p2 = +el.querySelector("#sP2").value || 0, p3 = +el.querySelector("#sP3").value || 0;
         el.querySelector("#capNote").innerHTML = `الأول ${T.nf(m * p1 / 100)} · الثاني ${T.nf(m * p2 / 100)} · النهائي ${T.nf(m * p3 / 100)} — المجموع ${T.nf(m * (p1 + p2 + p3) / 100)} من ${m}` +
           (p1 + p2 + p3 !== 100 ? ' <b style="color:var(--danger)">(النسب لا تساوي ١٠٠٪)</b>' : ""); };
@@ -66,6 +71,13 @@
           const r = await T.sb.auth.updateUser({ password: p }); closeSheet(); toast(r.error ? "تعذّر التغيير: " + r.error.message : "تم تغيير كلمة السر", !!r.error); };
       };
       el.querySelector("#sBackup").onclick = () => backup().catch((e) => toast(e.message, true));
+      let th;
+      const saveHonor = () => { clearTimeout(th); th = setTimeout(async () => {
+        const m = {}; el.querySelectorAll(".hm").forEach((t) => { const v = t.value.trim(); if (v && v !== U.HONOR[t.dataset.k]) m[t.dataset.k] = v.slice(0, 600); });
+        const v = Object.keys(m).length ? m : null;
+        try { await T.q(T.sb.from("teachers").update({ honor_msgs: v }).eq("id", S.me.id)); S.me.honor_msgs = v; toast("حُفظت رسائل الترتيب"); } catch (e) { toast(e.message, true); } }, 500); };
+      el.querySelectorAll(".hm").forEach((t) => (t.onchange = saveHonor));
+      el.querySelector("#sHonorReset").onclick = () => { el.querySelectorAll(".hm").forEach((t) => (t.value = U.HONOR[t.dataset.k])); saveHonor(); };
     }
   });
 

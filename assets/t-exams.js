@@ -65,7 +65,7 @@
     try {
       const r = await T.rpc("t_exam_action", { p_id: id, p_action: act });
       if (act === "duplicate" && r && r.id) { const src = S.exams.find((e) => e.id === id) || {};   // النسخة ترث نوع الأداة والتمايز والحماية
-        await T.q(T.sb.from("exams").update({ tool: src.tool || null, paper: !!src.paper, differentiated: !!src.differentiated,
+        await T.q(T.sb.from("exams").update({ tool: src.tool || null, paper: !!src.paper, differentiated: !!src.differentiated, show_answers: !!src.show_answers,
           secure_mode: src.secure_mode !== false, max_violations: src.max_violations || 0 }).eq("id", r.id)); }
       toast({ publish: "نُشر الاختبار", open_now: "فُتح الاختبار", close_now: "أُغلق الاختبار", reopen: "أُعيد فتح الاختبار", new_code: "رمز جديد: " + ((r && r.lab_code) || ""),
         duplicate: "أُنشئت نسخة (مسودة)", delete: "حُذف", draft: "صار مسودة" }[act] || "تم");
@@ -82,7 +82,7 @@
     const e = x || { title: "", kind: "quiz", mode: "remote", starts_at: start.toISOString(), ends_at: new Date(start.getTime() + 3600000).toISOString(),
       duration_min: 20, shuffle_questions: true, shuffle_options: true, allow_back: true, require_fullscreen: false, show_result: "after_close", max_attempts: 1,
       section_ids: S.sec ? [S.sec] : S.sections.map((s) => s.id), question_ids: [], n_started: 0, selection: "random", draw_rules: [], secure_mode: !wsNew, max_violations: wsNew ? 0 : 5,
-      tool: wsNew ? "worksheet" : null, paper: wsNew, differentiated: true };
+      tool: wsNew ? "worksheet" : null, paper: wsNew, differentiated: true, show_answers: true };
     if (wsNew) { e.duration_min = 30; }
     const kind0 = e.tool === "worksheet" ? "worksheet" : e.kind;
     let paper = !!e.paper;
@@ -112,6 +112,8 @@
         <label class="field"><span>عدد المحاولات (تُحتسب الأعلى)</span><select class="input" id="eA">${T.opt(String(e.max_attempts), [1, 2, 3, 4, 5].map((n) => [String(n), String(n)]))}</select></label></div>
       <div class="row wrap" style="margin-top:10px;gap:14px"><label class="check"><input type="checkbox" id="eQS" ${e.shuffle_questions ? "checked" : ""}> خلط ترتيب الأسئلة</label>
         <label class="check"><input type="checkbox" id="eOS" ${e.shuffle_options ? "checked" : ""}> خلط الخيارات</label><label class="check"><input type="checkbox" id="eB" ${e.allow_back ? "checked" : ""}> السماح بالرجوع</label></div>
+      <label class="check" style="margin-top:10px"><input type="checkbox" id="eAns" ${e.show_answers ? "checked" : ""}> <b>إظهار الإجابات الصحيحة للطلبة بعد انتهاء وقت الأداة للجميع</b></label>
+      <div class="tiny" style="margin:4px 0 0">يرى كل طالب أسئلته وإجابته والإجابة الصحيحة في «نتائجي» — فقط بعد أن يُغلق الاختبار أو ورقة العمل وينتهي وقت آخر طالب، فلا تتسرّب الإجابات لمن لم يحلّ بعد.</div>
       <div class="card pad" style="margin-top:14px;background:var(--gold-soft);border-color:transparent"><b>${ic("shield", "sm")} الحماية من الغش</b>
         <div class="row wrap" style="margin-top:10px;gap:14px"><label class="check"><input type="checkbox" id="eSec" ${e.secure_mode !== false ? "checked" : ""}> وضع الحماية (علامة مائية باسم الطالب، منع النسخ واللصق والطباعة، رصد الخروج ولقطة الشاشة)</label>
           <label class="check"><input type="checkbox" id="eF" ${e.require_fullscreen ? "checked" : ""}> ملء الشاشة إجباري</label></div>
@@ -231,7 +233,7 @@
         const r = await T.rpc("t_save_exam", { p });
         const eid = (r && r.id) || id;
         if (eid) await T.q(T.sb.from("exams").update({ secure_mode: !paper && b.querySelector("#eSec").checked, max_violations: Math.max(0, +b.querySelector("#eMV").value || 0),
-          tool: isWs ? "worksheet" : null, paper, differentiated: dif }).eq("id", eid));
+          tool: isWs ? "worksheet" : null, paper, differentiated: dif, show_answers: b.querySelector("#eAns").checked }).eq("id", eid));
         closeSheet(); toast(publish ? (paper ? "اعتُمدت — افتحها لتوليد أوراق الطلبة وطباعتها" : "نُشر" + (r && r.lab_code ? " — رمز الجلسة " + r.lab_code : "")) : "حُفظ كمسودة");
         await T.refreshExams();
         if (publish && paper && eid) T.go("#exam/" + eid); else T.route();

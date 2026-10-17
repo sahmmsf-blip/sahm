@@ -82,13 +82,14 @@
       q(sb.from("units").select("*").order("seq")), q(sb.from("lessons").select("*").order("seq")), all("outcomes", "*", "seq"),
       q(sb.from("tools").select("*").order("sort")), q(sb.from("event_types").select("*").order("sort")),
       all("mastery", "*", "created_at"), all("exam_marks", "*"), all("daily_events", "*", "created_at"), all("attendance", "*"),
-      q(sb.from("exams").select("id,secure_mode,max_violations,mailed_at,tool,paper,differentiated,created_at"))
+      q(sb.from("exams").select("id,secure_mode,max_violations,mailed_at,tool,paper,differentiated,show_answers,created_at"))
     ]);
     S.me = me; S.subject = boot.subject || {}; S.tools = tools; S.eventTypes = ets.filter((e) => e.is_active !== false);
     S.mastery = mastery; S.marks = marks; S.events = events; S.att = att;
     const extra = {}; exx.forEach((x) => (extra[x.id] = x));
     S.exams = boot.exams.map((e) => Object.assign({}, e, extra[e.id] || {})); numberExams();
     S.alertsSrv = boot.alerts || []; S.nq = boot.n_questions;
+    loadPhotoPending();
     const counts = {}; boot.sections.forEach((s) => (counts[s.id] = s));
     S.sections = sections.map((s) => Object.assign({}, s, { n: (counts[s.id] || {}).n || 0, n_cred: (counts[s.id] || {}).n_cred || 0 }));
     S.students = students;
@@ -115,8 +116,14 @@
     S.qs = (await rpc("t_questions")) || [];
     return S.qs;
   }
+  // صور الطلبة بانتظار موافقة المعلم (عدد فقط، والصور تُحمَّل عند الحاجة)
+  async function loadPhotoPending() {
+    try { const r = await q(sb.from("student_photos").select("student_id").eq("status", "pending")); S.photoPending = r.map((x) => x.student_id); }
+    catch (e) { S.photoPending = []; }
+    if (S.photoPending.length && S.cur === "dash") { try { T.route(); } catch (e) {} }
+  }
   async function refreshExams() {
-    const [boot, exx] = await Promise.all([rpc("t_bootstrap"), q(sb.from("exams").select("id,secure_mode,max_violations,mailed_at,tool,paper,differentiated,created_at"))]);
+    const [boot, exx] = await Promise.all([rpc("t_bootstrap"), q(sb.from("exams").select("id,secure_mode,max_violations,mailed_at,tool,paper,differentiated,show_answers,created_at"))]);
     const extra = {}; exx.forEach((x) => (extra[x.id] = x));
     S.exams = boot.exams.map((e) => Object.assign({}, e, extra[e.id] || {})); numberExams();
     S.alertsSrv = boot.alerts || []; S.nq = boot.n_questions;
@@ -366,7 +373,7 @@
     });
   }
 
-  window.T = { sb, S, LV, LVD, KIND, TIER, CATN, exTitle, exKind, numberExams, loadTiers, tierOf, toolSeq, mLabel, STATE, ATT, AR_M, rpc, q, all, guard, today, fmtD, nf, opt, empty, parseTSV, parseDate, loadScript, XLSX_URL,
+  window.T = { loadPhotoPending, sb, S, LV, LVD, KIND, TIER, CATN, exTitle, exKind, numberExams, loadTiers, tierOf, toolSeq, mLabel, STATE, ATT, AR_M, rpc, q, all, guard, today, fmtD, nf, opt, empty, parseTSV, parseDate, loadScript, XLSX_URL,
     loadAll, loadQuestions, refreshExams, sec, secName, studentsOf, semUnits, outcomesOfUnits, toolName, W,
     buildShell, fillShell, view, route, go, every, wireLogin, openSearch, NAV };
 })();

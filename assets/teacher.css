@@ -273,3 +273,10 @@ td.lv3{background:var(--l3-bg);color:var(--l3);font-weight:700}td.lv4{background
 .dgroups .card h4 { margin: 0 0 6px; font-family: var(--f-disp); }
 .qstem-pre, .opt-pre { white-space: pre-line; }
 .qitem li{white-space:pre-line}
+
+/* صور الطلبة بانتظار الموافقة */
+.phq{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-top:10px}
+.phi{display:grid;justify-items:center;gap:6px;text-align:center;padding:12px;border:1px solid var(--line);border-radius:14px;background:var(--surface-2)}
+.phi img{width:96px;height:96px;border-radius:50%;object-fit:cover;border:3px solid var(--surface);box-shadow:0 0 0 2px var(--accent-line)}
+.phi b{font-size:13px;line-height:1.5}
+.prof-head .avatar.has-ph{width:64px;height:64px}
