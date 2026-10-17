@@ -233,7 +233,7 @@
         const r = await T.rpc("t_save_exam", { p });
         const eid = (r && r.id) || id;
         if (eid) await T.q(T.sb.from("exams").update({ secure_mode: !paper && b.querySelector("#eSec").checked, max_violations: Math.max(0, +b.querySelector("#eMV").value || 0),
-          tool: isWs ? "worksheet" : null, paper, differentiated: dif, show_answers: b.querySelector("#eAns").checked }).eq("id", eid));
+          tool: isWs ? "worksheet" : x && x.tool === "exit" ? "exit" : null, paper, differentiated: dif, show_answers: b.querySelector("#eAns").checked }).eq("id", eid));
         closeSheet(); toast(publish ? (paper ? "اعتُمدت — افتحها لتوليد أوراق الطلبة وطباعتها" : "نُشر" + (r && r.lab_code ? " — رمز الجلسة " + r.lab_code : "")) : "حُفظ كمسودة");
         await T.refreshExams();
         if (publish && paper && eid) T.go("#exam/" + eid); else T.route();
@@ -291,12 +291,12 @@
       [Math.round(avg * 100) + "٪", "المتوسط"], [done.length ? Math.round((passN / done.length) * 100) + "٪" : "—", "نسبة ≥ ٥٠٪"], [viol, "لهم مخالفات"]];
     box.innerHTML = `<div class="kpi-row" style="grid-template-columns:repeat(auto-fit,minmax(130px,1fr))">` + tiles.map((t, i) => `<div class="kp ${i === 6 && t[0] && !paper ? "warn" : ""}"><b class="num">${t[0]}</b><span>${t[1]}</span></div>`).join("") + `</div>
       <div class="row sp wrap" style="margin:16px 0 10px"><div class="seg" id="rTabs">` +
-      (paper ? [["paper", "الأوراق والرصد"], ["students", "العلامات"], ["items", "الفقرات"], ["outcomes", "النتاجات"], ["matrix", "طالب × نتاج"]]
-        : [["students", "الطلبة"], ["violations", "المخالفات" + (R.ev.length ? " (" + R.ev.length + ")" : "")], ["items", "الفقرات"], ["outcomes", "النتاجات"], ["matrix", "طالب × نتاج"]])
+      (paper ? [["paper", "الأوراق والرصد"], ["students", "العلامات"], ["items", "الفقرات"], ["quality", "جودة الأسئلة"], ["outcomes", "النتاجات"], ["matrix", "طالب × نتاج"]]
+        : [["students", "الطلبة"], ["violations", "المخالفات" + (R.ev.length ? " (" + R.ev.length + ")" : "")], ["items", "الفقرات"], ["quality", "جودة الأسئلة"], ["outcomes", "النتاجات"], ["matrix", "طالب × نتاج"]])
         .map(([k, t]) => `<button data-t="${k}" aria-pressed="${R.tab === k}">${t}</button>`).join("") +
       `</div><span class="tiny">${r.exam.booked_at ? "✓ اعتُمد في السجلات " + esc(fmtDT(r.exam.booked_at, false)) : r.exam.kind === "practice" ? "تدريبي: لا يُعتمد" : "لم يُعتمد في السجلات بعد"}</span></div><div id="rTab"></div>`;
     box.querySelectorAll("#rTabs button").forEach((b) => (b.onclick = () => { R.tab = b.dataset.t; draw(); }));
-    ({ paper: tabPaper, students: tabStudents, violations: tabViol, items: tabItems, outcomes: tabOutcomes, matrix: tabMatrix })[R.tab]();
+    ({ paper: tabPaper, students: tabStudents, violations: tabViol, items: tabItems, outcomes: tabOutcomes, matrix: tabMatrix, quality: () => T.learn.quality(document.getElementById("rTab"), R.x.id) })[R.tab]();
   }
   const vCount = (sid) => R.ev.filter((e) => e.student_id === sid).length;
   function tabStudents() {

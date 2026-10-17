@@ -19,7 +19,7 @@
   function draw(el) {
     const tot = S.qs.filter((x) => x.active).length, zero = Object.values(S.O).filter((o) => !o.nq).length;
     el.innerHTML = `<div class="vhead"><div><h2>${tot} سؤالًا فعّالًا</h2><p>${zero ? zero + " نتاجًا بلا أسئلة بعد" : "كل النتاجات مغطّاة بسؤال واحد على الأقل"}</p></div>
-      <div class="toolbar"><button class="btn primary" id="bNew">${ic("layers", "sm")}سؤال جديد</button><button class="btn outline" id="bPaste">${ic("file", "sm")}لصق من إكسل</button>
+      <div class="toolbar"><button class="btn primary" id="bNew">${ic("layers", "sm")}سؤال جديد</button><button class="btn outline" id="bPaste">${ic("file", "sm")}لصق من إكسل</button><button class="btn outline" id="bQual">${ic("chart", "sm")}تحليل جودة البنك</button>
         <button class="btn ghost sm" id="bTpl">قالب الاستيراد</button><button class="btn ghost sm" id="bExport">تصدير البنك</button></div></div>
       <div class="card pad filters"><div class="fields three">
         <label class="field"><span>الوحدة</span><select class="input" id="bUnit">${T.opt(F.unit, S.units.map((u) => [u.id, "الوحدة " + u.seq + " · " + u.title]), "كل الوحدات")}</select></label>
@@ -43,6 +43,7 @@
     let qt; el.querySelector("#bQ").oninput = (e) => { clearTimeout(qt); qt = setTimeout(() => { F.q = e.target.value; list(el); }, 250); };
     el.querySelector("#bNew").onclick = () => editQuestion(null, el);
     el.querySelector("#bPaste").onclick = () => importSheet(el);
+    el.querySelector("#bQual").onclick = () => T.learn.bankQuality();
     el.querySelector("#bTpl").onclick = downloadTemplate;
     el.querySelector("#bExport").onclick = exportBank;
     el.querySelectorAll("[data-o]").forEach((b) => (b.onclick = () => { const o = S.O[b.dataset.o];

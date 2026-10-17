@@ -86,7 +86,8 @@
   async function loadDash(silent) {
     let h, p;
     let rc, rk;
-    try { [h, p, rc, rk] = await Promise.all([call("student_home"), call("student_profile"), call("student_records").catch(() => null), call("student_rank").catch(() => null)]); }
+    try { [h, p, rc, rk] = await Promise.all([call("student_home"), call("student_profile"), call("student_records").catch(() => null), call("student_rank").catch(() => null)]);
+      call("student_practice_home").then((x) => { if (x && x.ok) { D.pr = x; if (!(location.hash || "").replace("#/", "") && !X.a && !$("vHome").classList.contains("hide")) route(); } }).catch(() => {}); }
     catch (e) { if (!silent) toast(e.message, true); throw e; }
     if (!h.ok) { toast(h.error, true); return; }
     D.home = h; D.prof = p && p.ok ? p : { me: {}, history: [], stats: {}, upcoming: [], units: [] }; D.rec = rc && rc.ok ? rc : { ok: false }; D.rank = rk && rk.ok ? rk : null;
@@ -96,9 +97,12 @@
   }
   window.addEventListener("hashchange", () => { if (D.home && !X.a) { route(); window.scrollTo(0, 0); } });
   function route() {
-    const k = (location.hash || "").replace("#/", "");
-    const fn = { exams: pExams, upcoming: pUpcoming, results: pResults, outcomes: pOutcomes, behavior: pBehavior, tips: pTips, me: pMe, rank: pRank }[k];
-    $("dash").innerHTML = fn ? fn() : dashHome();
+    const full = (location.hash || "").replace("#/", ""), [k, arg] = full.split("/");
+    if (k === "go" && arg) { history.replaceState(null, "", location.pathname); setTimeout(() => startExam(arg, "remote", false), 50); }
+    const fn = { exams: pExams, upcoming: pUpcoming, results: pResults, outcomes: pOutcomes, behavior: pBehavior, tips: pTips, me: pMe, rank: pRank,
+      practice: pPractice, lesson: pLesson, mistakes: pMistakes, progress: pProgress, ask: pAsk }[k];
+    $("dash").innerHTML = fn ? fn(arg) : dashHome();
+    if (ASYNC[k]) ASYNC[k](arg);
     wire(); wirePhoto(); if (k === "results") wireResults(); if (k === "behavior") wireBehavior(); if (k === "tips" || !k) wireTips(); clearInterval(D.cdT); D.cdT = setInterval(tickCountdowns, 30000);
   }
   function wire() {
@@ -108,6 +112,7 @@
     box.querySelectorAll("[data-rev]").forEach((b) => (b.onclick = () => openReview(b.dataset.rev)));
     box.querySelectorAll("[data-go]").forEach((b) => (b.onclick = () => { location.hash = b.dataset.go ? "#/" + b.dataset.go : ""; }));
     box.querySelectorAll("[data-skin-open]").forEach((b) => (b.onclick = skinPicker));
+    box.querySelectorAll("[data-practice]").forEach((b) => (b.onclick = () => runPractice(b.dataset.practice)));
   }
   function tickCountdowns() { document.querySelectorAll("[data-cd]").forEach((el) => (el.textContent = ago(el.dataset.cd))); }
 
@@ -149,6 +154,7 @@
                    : '<span class="pill ended">سُلِّم</span>'}</div></div>`;
     });
 
+    out += practiceSpot();
     out += smartBox();
 
     const lastRes = (p.history || []).find((x) => x.visible && x.total);
@@ -158,6 +164,9 @@
       ["results", "award", "نتائجي", D.rec && D.rec.marks && D.rec.marks.total != null ? "مجموعك حتى الآن " + nf(D.rec.marks.total) + " · وكل سجلاتك" : lastRes ? "آخر نتيجة: " + lastRes.score + "/" + lastRes.total : "علاماتك وكل سجلات التقويم", ((D.rec && D.rec.results) || p.history || []).length],
       ["behavior", "flag", "سلوكي وحضوري", "الحضور والمشاركة والسلوك ببطاقات تفصيلية", D.rec && D.rec.events ? D.rec.events.length : null],
       ["outcomes", "target", "خريطة نتاجاتي", measured.length ? "مستواك في " + measured.length + " نتاجًا من " + outs.length : "مستواك في كل نتاج من الكتاب", null],
+      ["practice", "spark", "التدريب الذاتي", D.pr ? (D.pr.streak.streak ? "سلسلتك " + D.pr.streak.streak + (D.pr.streak.streak === 1 ? " يوم" : " أيام") + " — حافظ عليها!" : "تدرّب على أي درس بلا حدود") : "تدرّب على أي درس بلا حدود", D.pr && D.pr.mistakes ? D.pr.mistakes : null, !!(D.pr && D.pr.mistakes)],
+      ["progress", "trend", "منحنى تقدّمي", "كيف يتحسّن مستواك أسبوعًا بعد أسبوع", null],
+      ["ask", "chat", "اسأل معلّمي", "اسأل عن أي درس — زملاؤك لا يعرفون من سأل", null],
       ["rank", "award", "ترتيبي وبطاقة الشرف", D.rank ? rankLine(D.rank) : "ترتيبك داخل شعبتك يتحدّث لحظيًّا", null],
       ["me", "user", "ملفّي", "صورتك وبياناتك وشعبتك ومعلّمك", null],
       ["", "palette", "المظهر", "اختر السمة التي تريح عينيك", null, false, true]
@@ -435,6 +444,197 @@
       <dt>المعلّم</dt><dd>${esc(me.teacher || "—")}</dd><dt>المدرسة</dt><dd>${esc(me.school || "—")}</dd></dl></div>
       <p class="tiny" style="margin-top:12px">إذا كان في بياناتك خطأ فأبلغ معلّمك ليصحّحه.</p>` + photoCard();
   }
+
+  // ===================== شاشة الدخول: التثبيت والمساعدة =====================
+  let deferredInstall = null;
+  const isStandalone = () => (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone;
+  window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); deferredInstall = e; });
+  window.addEventListener("appinstalled", () => { $("installBtn").classList.add("hide"); toast("ثُبّتت المنصة على جهازك"); });
+  if (!isStandalone()) $("installBtn").classList.remove("hide");
+  function installHelp() {
+    if (deferredInstall) { deferredInstall.prompt(); deferredInstall.userChoice.finally(() => (deferredInstall = null)); return; }
+    const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    openSheet(`<h3>${ic("phone", "sm")} ثبّت المنصة كتطبيق على هاتفك</h3>
+      <p class="muted">تظهر أيقونة «السهم العلمي» على شاشة هاتفك وتفتح مباشرة دون متصفح.</p>
+      <div class="hsteps"><div class="${ios ? "on" : ""}"><b>آيفون (Safari)</b><ol><li>اضغط زر المشاركة <b>⬆︎</b> أسفل الشاشة.</li><li>اختر <b>«إضافة إلى الشاشة الرئيسية»</b>.</li><li>اضغط <b>«إضافة»</b>.</li></ol></div>
+        <div class="${ios ? "" : "on"}"><b>أندرويد (Chrome)</b><ol><li>اضغط القائمة <b>⋮</b> أعلى الشاشة.</li><li>اختر <b>«تثبيت التطبيق»</b> أو <b>«إضافة إلى الشاشة الرئيسية»</b>.</li><li>اضغط <b>«تثبيت»</b>.</li></ol></div></div>`);
+  }
+  function loginHelp() {
+    const C = window.APP_CONFIG || {}, ph = String(C.CONTACT_PHONE || "").replace(/\D/g, ""), intl = ph.startsWith("0") ? "962" + ph.slice(1) : ph;
+    const msg = encodeURIComponent("مرحبًا أستاذ، لا أستطيع الدخول إلى منصة السهم العلمي.\nاسمي: \nشعبتي: \nالرسالة التي تظهر لي: ");
+    openSheet(`<h3>${ic("help", "sm")} لا أستطيع الدخول</h3>
+      <ol class="hlist"><li><b>الرقم الوطني:</b> ١٠ أرقام كما في بطاقتك أو دفتر العائلة، دون مسافات.</li>
+        <li><b>تاريخ الميلاد:</b> اختر اليوم والشهر والسنة كما في شهادة ميلادك تمامًا.</li>
+        <li>إذا ظهر «لم نجد بياناتك» فمعلّمك لم يُدخل بياناتك بعد أو فيها خطأ — راسله ليصحّحها.</li>
+        <li>بعد عدة محاولات خاطئة يتوقف الدخول مؤقتًا لحمايتك؛ انتظر قليلًا ثم حاول.</li>
+        <li>استخدم متصفحًا محدّثًا (Chrome أو Safari)، وتأكد من اتصال الإنترنت.</li></ol>
+      <div class="row wrap" style="margin-top:14px">${intl ? `<a class="btn primary" target="_blank" rel="noopener" href="https://wa.me/${intl}?text=${msg}">${ic("chat", "sm")}راسل معلّمك على واتساب</a>` : ""}
+        ${C.WHATSAPP ? `<a class="btn outline" target="_blank" rel="noopener" href="${esc(C.WHATSAPP)}">قناة المنصة على واتساب</a>` : ""}</div>`);
+  }
+  $("helpBtn").onclick = loginHelp; $("installBtn").onclick = installHelp;
+
+  // ===================== التدريب الذاتي =====================
+  const ASYNC = {};
+  const loading = (t) => `<div class="card pad" style="text-align:center"><span class="tiny">${t || "جارٍ التحميل…"}</span></div>`;
+  const BOOKP = (u, l) => { const b = BOOK[u + "." + l]; return b ? "صفحات الكتاب " + b[0] + "–" + b[1] : ""; };
+  function practiceSpot() {
+    const P = D.pr; if (!P) return "";
+    const st = P.streak || {}, acc = P.total ? Math.round((P.correct / P.total) * 100) : null;
+    return `<div class="pspot"><div class="pspot-f ${st.today ? "on" : ""}">${ic("fire", "lg")}<b class="num">${st.streak || 0}</b><span>${st.streak === 1 ? "يوم" : "أيام"}</span></div>
+      <div class="grow"><h3>${st.today ? "أحسنت! تدرّبت اليوم" : st.streak ? "لا تقطع سلسلتك — تدرّب اليوم" : "ابدأ سلسلة التدريب اليومية"}</h3>
+        <div class="tiny">${P.total ? `حللت ${P.total} سؤالًا تدريبيًّا بدقّة ${acc}٪` : "١٠ أسئلة يوميًّا ترفع مستواك بوضوح"}${P.mistakes ? ` · في دفتر أخطائك <b>${P.mistakes}</b>` : ""}</div>
+        <div class="wk">${(st.week || []).map((d) => `<i class="${d.on ? "on" : ""}" title="${esc(d.d)}"></i>`).join("")}</div></div>
+      <div class="pspot-b"><button class="btn primary" data-practice="smart">${ic("spark", "sm")}تدريب ذكي</button>${P.mistakes ? `<button class="btn outline" data-practice="mistakes">دفتر أخطائي (${P.mistakes})</button>` : ""}</div></div>`;
+  }
+  function pPractice() { return crumb("التدريب الذاتي", "تدرّب على أي درس بلا حدود — لا يدخل في علامتك، ويركّز على نتاجاتك الأضعف") + '<div id="apg">' + loading() + "</div>"; }
+  ASYNC.practice = async () => {
+    let P; try { P = await call("student_practice_home"); } catch (e) { return; }
+    if (!P.ok) { $("apg").innerHTML = emptyBox("alert", P.error || "تعذّر التحميل", ""); return; }
+    D.pr = P; const st = P.streak || {};
+    let h = practiceSpot() + `<div class="kpis sm" style="margin-top:14px"><div class="kpi"><b class="num">${st.best || 0}</b><span>أطول سلسلة</span></div>
+      <div class="kpi"><b class="num">${P.today_n}</b><span>سؤالًا اليوم</span></div><div class="kpi"><b class="num">${P.total}</b><span>المجموع</span></div>
+      <div class="kpi"><b class="num">${P.total ? Math.round((P.correct / P.total) * 100) + "٪" : "—"}</b><span>دقّتك</span></div></div>`;
+    let u0 = null;
+    h += '<div class="lbl" style="margin:22px 0 10px">اختر درسًا للتدريب أو افتح صفحته</div><div class="lessons">' + P.lessons.map((l) => {
+      const head = l.unit !== u0 ? `<div class="lu">الوحدة ${l.unit}: ${esc(l.unit_title)}</div>` : ""; u0 = l.unit;
+      const lvl = l.avg ? Math.round(+l.avg) : 0;
+      return head + `<div class="lc2"><div class="grow"><b>الدرس ${l.seq}: ${esc(l.title)}</b><div class="tiny">${l.nq} سؤالًا في البنك${l.done ? ` · تدرّبت ${l.done} بدقّة ${l.acc}٪` : ""}${BOOKP(l.unit, l.seq) ? " · " + BOOKP(l.unit, l.seq) : ""}</div>
+        ${l.avg ? `<span class="lv lv${lvl}" style="margin-top:6px;display:inline-block">مستواك ${nf(l.avg, 1)} من ٤</span>` : '<span class="tiny">لم يُقَس بعد</span>'}</div>
+        <div class="lc2-b"><button class="btn sm primary" data-practice="${l.id}" ${l.nq ? "" : "disabled"}>تدرّب</button><button class="btn sm ghost" data-go="lesson/${l.id}">${l.res ? ic("video", "sm") : ""}صفحة الدرس</button></div></div>`; }).join("") + "</div>";
+    $("apg").innerHTML = h; wire(); wirePractice();
+  };
+  function wirePractice() { document.querySelectorAll("[data-practice]").forEach((b) => (b.onclick = () => runPractice(b.dataset.practice))); }
+
+  const PR = { qs: [], i: 0, mode: "practice", ok: 0, done: 0, lessons: null, wrong: [] };
+  async function runPractice(what, n) {
+    const mode = what === "mistakes" ? "mistakes" : "practice", lessons = what && !["smart", "mistakes"].includes(what) ? [what] : null;
+    let r; try { r = await call("student_practice_start", { p_lessons: lessons, p_n: n || 10, p_mode: mode }); } catch (e) { toast(e.message, true); return; }
+    if (!r.ok) { toast(r.error, r.code !== "EMPTY"); return; }
+    Object.assign(PR, { qs: r.questions, i: 0, mode, ok: 0, done: 0, lessons, wrong: [], what, streak0: D.pr && D.pr.streak ? D.pr.streak.streak : 0, today0: D.pr && D.pr.streak && D.pr.streak.today });
+    history.replaceState(null, "", "#/practice"); renderQ(); window.scrollTo(0, 0);
+  }
+  function renderQ() {
+    const q = PR.qs[PR.i], n = PR.qs.length;
+    $("dash").innerHTML = `<div class="crumb"><button class="iconbtn" id="prX" aria-label="إنهاء">${ic("x")}</button><div><h2>${PR.mode === "mistakes" ? "دفتر أخطائي" : "تدريب"} · السؤال ${PR.i + 1} من ${n}</h2>
+        <div class="tiny">${esc(q.outcome)} · ${esc(q.diff)} · صحيح ${PR.ok} من ${PR.done}</div></div></div>
+      <div class="bar" style="margin-bottom:14px"><i style="width:${(PR.i / n) * 100}%"></i></div>
+      <div class="card pad pq"><div class="stem">${esc(q.stem)}</div>${q.img ? `<img class="qimg" src="${esc(q.img)}" alt="">` : ""}
+        <div class="opts">${q.opts.map((o, j) => `<button class="opt" data-k="${o.k}"><span class="L">${L[j]}</span><span class="grow">${esc(o.t)}</span></button>`).join("")}</div>
+        <div id="pqFb"></div></div>`;
+    $("prX").onclick = endPractice;
+    document.querySelectorAll(".pq .opt").forEach((b) => (b.onclick = () => answerQ(+b.dataset.k)));
+  }
+  async function answerQ(k) {
+    const q = PR.qs[PR.i]; document.querySelectorAll(".pq .opt").forEach((b) => (b.disabled = true));
+    let r; try { r = await call("student_practice_answer", { p_q: q.id, p_chosen: k, p_mode: PR.mode }); } catch (e) { toast(e.message, true); return; }
+    if (!r.ok) { toast(r.error, true); document.querySelectorAll(".pq .opt").forEach((b) => (b.disabled = false)); return; }
+    PR.done++; if (r.correct) PR.ok++; else PR.wrong.push(q);
+    document.querySelectorAll(".pq .opt").forEach((b) => { const kk = +b.dataset.k; b.classList.add("rvo"); if (kk === r.key) b.classList.add("is-ok"); if (kk === k && !r.correct) b.classList.add("is-bad"); });
+    const last = PR.i === PR.qs.length - 1;
+    $("pqFb").innerHTML = `<div class="pfb ${r.correct ? "ok" : "bad"}"><b>${r.correct ? "إجابة صحيحة، أحسنت!" : "إجابة خاطئة — الصحيحة مظلّلة بالأخضر"}</b>
+      <span class="tiny">${r.correct ? (PR.mode === "mistakes" ? (r.in_mistakes ? "حلّه صحيحًا مرة أخرى ليُشطب من دفترك." : "شُطب من دفتر أخطائك!") : "") : "أُضيف إلى دفتر أخطائك لتعيد حلّه لاحقًا."}</span>
+      <button class="btn primary" id="pqNext">${last ? "النتيجة" : "التالي"}${ic("left", "sm")}</button></div>`;
+    $("pqNext").onclick = () => { if (last) endPractice(); else { PR.i++; renderQ(); window.scrollTo(0, 0); } };
+    $("pqNext").focus();
+    if (r.streak > (PR.streak0 || 0) && !PR.today0) { PR.today0 = true; toast("🔥 سلسلتك الآن " + r.streak + (r.streak === 1 ? " يوم" : " أيام") + " — استمر!"); }
+  }
+  async function endPractice() {
+    const n = PR.done, p = n ? Math.round((PR.ok / n) * 100) : 0;
+    try { const x = await call("student_practice_home"); if (x.ok) D.pr = x; } catch (e) {}
+    $("dash").innerHTML = crumb("نتيجة التدريب") + (n ? `<div class="card pad" style="text-align:center"><div class="score-ring" style="--p:${p}"><div><div><b class="num">${PR.ok}/${n}</b><span class="tiny">${p}٪</span></div></div></div>
+      <p class="muted">${p >= 85 ? "ممتاز! أنت تتقن هذه الأسئلة." : p >= 60 ? "جيد — راجع أخطاءك لترتفع أكثر." : "لا بأس، التدريب هو الطريق. أعد المحاولة بعد مراجعة الدرس."}</p>
+      <div class="row wrap" style="justify-content:center;margin-top:10px"><button class="btn primary" data-practice="${PR.what === "mistakes" ? "mistakes" : PR.what || "smart"}">تدريب جديد</button>
+        ${D.pr && D.pr.mistakes ? `<button class="btn outline" data-practice="mistakes">دفتر أخطائي (${D.pr.mistakes})</button>` : ""}<button class="btn ghost" data-go="practice">كل الدروس</button></div></div>` : emptyBox("spark", "لم تُجب عن أي سؤال", "")) ;
+    wire(); wirePractice();
+  }
+
+  // ===================== دفتر أخطائي =====================
+  function pMistakes() { return crumb("دفتر أخطائي", "كل سؤال أخطأت فيه — يُشطب بعد حلّه صحيحًا مرتين") + '<div id="apg">' + loading() + "</div>"; }
+  ASYNC.mistakes = async () => {
+    let r; try { r = await call("student_mistakes"); } catch (e) { return; }
+    const it = (r && r.items) || [];
+    $("apg").innerHTML = it.length ? `<div class="row sp wrap" style="margin-bottom:12px"><b>${it.length} سؤالًا</b><button class="btn primary" data-practice="mistakes">${ic("spark", "sm")}أعد حلّها الآن</button></div>
+      <div class="card list">${it.map((x) => `<div class="li"><div><b style="font-weight:500">${esc(x.stem)}</b><div class="tiny">الدرس ${x.lesson_seq}: ${esc(x.lesson)} · ${esc(x.outcome)} · ${x.src === "exam" ? "من اختبار" : "من التدريب"}${x.fixed ? " · حللته صحيحًا مرة" : ""}</div></div></div>`).join("")}</div>`
+      : emptyBox("check", "دفترك فارغ — أحسنت!", "كل سؤال تخطئ فيه في التدريب أو في كويز انتهى يظهر هنا لتعيد حلّه.");
+    wire(); wirePractice();
+  };
+  ASYNC.practice_mistakes = ASYNC.mistakes;
+
+  // ===================== صفحة الدرس =====================
+  const ytId = (u) => { const m = String(u || "").match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|shorts\/|embed\/|live\/))([\w-]{11})/); return m ? m[1] : null; };
+  function pLesson() { return crumb("صفحة الدرس") + '<div id="apg">' + loading() + "</div>"; }
+  ASYNC.lesson = async (id) => {
+    let r, a; try { [r, a] = await Promise.all([call("student_lesson", { p_lesson: id }), call("student_asks", { p_lesson: id })]); } catch (e) { return; }
+    if (!r.ok) { $("apg").innerHTML = emptyBox("alert", r.error, ""); return; }
+    document.querySelector(".crumb h2").textContent = "الدرس " + r.seq + ": " + r.title;
+    const yt = ytId(r.video), bp = BOOKP(r.unit, r.seq), asks = ((a && a.items) || []).filter((x) => x.answer);
+    let h = `<div class="tiny" style="margin:-6px 0 12px">الوحدة ${r.unit}: ${esc(r.unit_title)}${bp ? " · " + bp : ""}</div>`;
+    if (yt) h += `<div class="vid"><iframe src="https://www.youtube-nocookie.com/embed/${yt}" title="فيديو الدرس" allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; fullscreen" allowfullscreen loading="lazy"></iframe></div>`;
+    else if (r.video) h += `<a class="btn primary" target="_blank" rel="noopener" href="${esc(r.video)}">${ic("video", "sm")}شاهد فيديو الشرح</a>`;
+    if (r.summary) h += `<div class="card pad" style="margin-top:14px"><h3 style="font-size:16px;margin-bottom:8px">${ic("book", "sm")} ملخص الدرس</h3><div class="sum">${esc(r.summary)}</div></div>`;
+    if (!r.video && !r.summary) h += `<div class="note">لم يضف معلّمك فيديو أو ملخصًا لهذا الدرس بعد. راجع الكتاب${bp ? " (" + bp + ")" : ""}، وتدرّب من الأسئلة أدناه.</div>`;
+    h += `<div class="card pad" style="margin-top:14px"><h3 style="font-size:16px;margin-bottom:8px">${ic("target", "sm")} نتاجات الدرس ومستواك</h3><div class="stack">` +
+      r.outcomes.map((o) => `<div class="oc"><span class="lbl-chip">${esc(o.label)}</span><span>${esc(o.text)}</span><span class="lv lv${o.level || 0}">${o.level ? o.level + " · " + LV[o.level] : "لم يُقَس"}</span></div>`).join("") + "</div></div>";
+    h += `<div class="row wrap" style="margin-top:14px"><button class="btn primary" data-practice="${r.id}" ${r.nq ? "" : "disabled"}>${ic("spark", "sm")}تدرّب على هذا الدرس (${r.nq} سؤالًا)</button>
+      <button class="btn outline" data-go="ask/${r.id}">${ic("chat", "sm")}اسأل معلّمي عن الدرس</button></div>${r.done ? `<p class="tiny" style="margin-top:8px">تدرّبت على ${r.done} سؤالًا من هذا الدرس بدقّة ${r.acc}٪.</p>` : ""}`;
+    if (asks.length) h += '<div class="lbl" style="margin:22px 0 10px">أسئلة زملائك وأجوبة المعلّم</div>' + asks.map(askCard).join("");
+    $("apg").innerHTML = h; wire(); wirePractice();
+  };
+
+  // ===================== منحنى تقدّمي =====================
+  function pProgress() { return crumb("منحنى تقدّمي", "علامة التقويم الثاني (من إتقانك للنتاجات) أسبوعًا بعد أسبوع") + '<div id="apg">' + loading() + "</div>"; }
+  ASYNC.progress = async () => {
+    let r; try { r = await call("student_progress"); } catch (e) { return; }
+    const w = ((r && r.weeks) || []).filter((x) => x.n > 0 || x.p_n > 0);
+    if (!w.length) { $("apg").innerHTML = emptyBox("trend", "لا بيانات بعد", "يظهر المنحنى بعد أول قياس لنتاجاتك."); return; }
+    const cap = +r.cap2 || 30, W = 640, H = 230, padL = 34, padR = 14, padT = 16, padB = 34, iw = W - padL - padR, ih = H - padT - padB;
+    const pts = w.map((x, i) => ({ x: padL + (w.length === 1 ? iw / 2 : (i * iw) / (w.length - 1)), y: x.second == null ? null : padT + ih - (x.second / cap) * ih, d: x }));
+    const line = pts.filter((p) => p.y != null).map((p, i) => (i ? "L" : "M") + p.x.toFixed(1) + " " + p.y.toFixed(1)).join(" ");
+    const ticks = [0, cap / 2, cap].map((v) => `<line x1="${padL}" x2="${W - padR}" y1="${padT + ih - (v / cap) * ih}" y2="${padT + ih - (v / cap) * ih}" class="gl"/><text x="${padL - 6}" y="${padT + ih - (v / cap) * ih + 4}" class="ax" text-anchor="end">${nf(v, 0)}</text>`).join("");
+    const lab = (d) => new Date(d + "T00:00:00").toLocaleDateString("ar-JO", { day: "numeric", month: "short" });
+    const step = Math.ceil(w.length / 6);
+    const xl = pts.map((p, i) => (i % step === 0 || i === pts.length - 1 ? `<text x="${p.x}" y="${H - 10}" class="ax" text-anchor="middle">${lab(p.d.end)}</text>` : "")).join("");
+    const first = w.find((x) => x.second != null), lastW = [...w].reverse().find((x) => x.second != null);
+    const diff = first && lastW ? lastW.second - first.second : 0;
+    let h = `<div class="card pad"><div class="row sp wrap"><div><span class="tiny">علامتك الآن</span><div class="hero-n num">${nf(lastW && lastW.second)} <small>من ${nf(cap)}</small></div></div>
+        <span class="pill ${diff > 0 ? "open" : diff < 0 ? "warn" : ""}">${diff > 0 ? "▲ تحسّنت " + nf(diff) : diff < 0 ? "▼ تراجعت " + nf(-diff) : "ثابتة"} منذ أول أسبوع</span></div>
+      <div class="chart" id="pgChart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="منحنى علامة التقويم الثاني">${ticks}
+        <path d="${line}" class="ln"/>${pts.filter((p) => p.y != null).map((p, i) => `<circle cx="${p.x}" cy="${p.y}" r="4.5" class="dt" data-i="${pts.indexOf(p)}"/>`).join("")}${xl}
+        <line class="xh" id="pgX" y1="${padT}" y2="${padT + ih}" x1="-10" x2="-10"/></svg><div class="tipbox hide" id="pgTip"></div></div>
+      ${pts.filter((p) => p.y != null).length < 2 ? '<p class="tiny" style="margin:6px 0 0">يكتمل المنحنى أسبوعًا بعد أسبوع مع كل قياس جديد لنتاجاتك.</p>' : ""}</div>`;
+    h += `<div class="lbl" style="margin:20px 0 10px">التفاصيل الأسبوعية</div><div class="tw"><table class="t"><thead><tr><th>الأسبوع المنتهي</th><th class="num">التقويم الثاني</th><th class="num">متوسط الإتقان</th><th class="num">نتاجات مقيسة</th><th class="num">أسئلة التدريب</th><th class="num">دقّة التدريب</th></tr></thead><tbody>` +
+      [...w].reverse().map((x) => `<tr><td>${esc(lab(x.end))}</td><td class="num"><b>${nf(x.second)}</b></td><td class="num">${nf(x.avg)}</td><td class="num">${x.n}</td><td class="num">${x.p_n || "—"}</td><td class="num">${x.p_n ? x.p_acc + "٪" : "—"}</td></tr>`).join("") + "</tbody></table></div>";
+    $("apg").innerHTML = h;
+    const svg = document.querySelector("#pgChart svg"), tip = $("pgTip"), xh = $("pgX");
+    const showAt = (i) => { const p = pts[i]; if (!p || p.y == null) return; xh.setAttribute("x1", p.x); xh.setAttribute("x2", p.x);
+      tip.innerHTML = `<b>${esc(lab(p.d.end))}</b><br>التقويم الثاني: ${nf(p.d.second)} من ${nf(cap)}<br>متوسط الإتقان: ${nf(p.d.avg)} من ٤${p.d.p_n ? `<br>تدريب: ${p.d.p_n} سؤالًا (${p.d.p_acc}٪)` : ""}`;
+      tip.classList.remove("hide"); const r0 = svg.getBoundingClientRect(); tip.style.left = Math.min(r0.width - 170, Math.max(0, (p.x / W) * r0.width - 80)) + "px"; tip.style.top = ((p.y / H) * r0.height - 78) + "px"; };
+    const move = (e) => { const r0 = svg.getBoundingClientRect(), cx = (((e.touches ? e.touches[0].clientX : e.clientX) - r0.left) / r0.width) * W;
+      let bi = 0, bd = 1e9; pts.forEach((p, i) => { if (p.y != null && Math.abs(p.x - cx) < bd) { bd = Math.abs(p.x - cx); bi = i; } }); showAt(bi); };
+    svg.addEventListener("mousemove", move); svg.addEventListener("touchstart", move, { passive: true });
+    svg.addEventListener("mouseleave", () => { tip.classList.add("hide"); xh.setAttribute("x1", -10); xh.setAttribute("x2", -10); });
+  };
+
+  // ===================== اسأل معلّمي =====================
+  const askCard = (x) => `<div class="card pad ask ${x.mine ? "mine" : ""}" style="margin-top:10px"><div class="row sp wrap"><span class="tiny">${x.lesson ? "الدرس " + x.lesson_seq + ": " + esc(x.lesson) : "سؤال عام"} · ${esc(ago(x.at))}</span>
+      ${x.mine ? `<span class="pill ${x.answer ? "open" : "soon"}">${x.answer ? "أجاب المعلّم" : "بانتظار الإجابة"}${x.private ? " · خاص بك" : ""}</span>` : '<span class="pill">من زميل</span>'}</div>
+      <p class="q">${esc(x.body)}</p>${x.answer ? `<div class="ans"><b>${ic("chat", "sm")} جواب المعلّم</b><p>${esc(x.answer)}</p></div>` : ""}</div>`;
+  function pAsk() { return crumb("اسأل معلّمي", "اسأل عن أي شيء في الدروس — يظهر سؤالك لزملائك مع جواب المعلّم دون اسمك") + '<div id="apg">' + loading() + "</div>"; }
+  ASYNC.ask = async (lessonId) => {
+    let r, P = D.pr; try { [r, P] = await Promise.all([call("student_asks"), P ? Promise.resolve(P) : call("student_practice_home")]); } catch (e) { return; }
+    const ls = (P && P.lessons) || [];
+    let h = `<div class="card pad"><label class="field"><span>الدرس (اختياري)</span><select class="input" id="akL"><option value="">سؤال عام</option>${ls.map((l) => `<option value="${l.id}" ${l.id === lessonId ? "selected" : ""}>الدرس ${l.seq}: ${esc(l.title)}</option>`).join("")}</select></label>
+      <label class="field" style="margin-top:10px"><span>سؤالك</span><textarea class="input" id="akB" rows="4" maxlength="600" placeholder="مثال: لماذا يُسجَّل شراء البضاعة بالأجل في الطرف الدائن لحساب الدائنين؟"></textarea></label>
+      <div class="row sp" style="margin-top:10px"><span class="tiny">زملاؤك لا يرون اسمك. حتى ٥ أسئلة يوميًّا.</span><button class="btn primary" id="akGo">${ic("chat", "sm")}أرسل السؤال</button></div></div>`;
+    const it = (r && r.items) || [], mine = it.filter((x) => x.mine), others = it.filter((x) => !x.mine);
+    if (mine.length) h += '<div class="lbl" style="margin:20px 0 6px">أسئلتي</div>' + mine.map(askCard).join("");
+    h += '<div class="lbl" style="margin:20px 0 6px">أسئلة الشعبة وأجوبة المعلّم</div>' + (others.length ? others.map(askCard).join("") : '<p class="tiny">لا أسئلة مُجابة بعد.</p>');
+    $("apg").innerHTML = h;
+    $("akGo").onclick = async () => { const b = $("akGo"), body = $("akB").value.trim(); if (body.length < 3) return toast("اكتب سؤالك أولًا", true);
+      spin(b, true, "جارٍ الإرسال…");
+      try { const x = await call("student_ask", { p_lesson: $("akL").value || null, p_body: body }); if (!x.ok) throw new Error(x.error); toast("أُرسل سؤالك إلى معلّمك"); ASYNC.ask(lessonId); }
+      catch (e) { spin(b, false); toast(e.message, true); } };
+  };
 
   // ===================== ترتيبي وبطاقة الشرف =====================
   const ORD = ["", "الأول", "الثاني", "الثالث", "الرابع", "الخامس", "السادس", "السابع", "الثامن", "التاسع", "العاشر"];

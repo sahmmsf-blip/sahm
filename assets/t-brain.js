@@ -118,6 +118,7 @@
       else if (a.go.startsWith("exam:")) { go = "#exam/" + a.go.slice(5); act = "فتح"; }
       out.push({ lvl: a.level, msg: a.msg, go, act, ic: a.level === "warn" ? "alert" : a.level === "info" ? "play" : "flag" });
     });
+    { const ua = (S.asks || []).filter((a) => !a.answer && !a.hidden).length; if (ua) out.push({ lvl: "todo", msg: ua + " سؤالًا من الطلبة بانتظار إجابتك في «اسأل معلّمي».", go: "#asks", act: "أجب", ic: "chat" }); }
     if ((S.photoPending || []).length) out.push({ lvl: "todo", msg: S.photoPending.length + " صورة طالب بانتظار موافقتك لتظهر في ملفه وبطاقة الشرف.", go: "#people", act: "راجع الصور", ic: "user" });
     if (sec) {
       const sm = secSummary(secId), now = new Date();
@@ -145,6 +146,7 @@
     if (!S.ready) return b;
     const open = S.exams.filter((e) => e.state === "open").length; if (open) b.exams = { n: open, soft: true };
     const noCred = S.students.filter((s) => s.is_active && (!s.national_id || !s.birth_date)).length; if (noCred) b.people = { n: noCred };
+    const ua = (S.asks || []).filter((a) => !a.answer && !a.hidden).length; if (ua) b.asks = { n: ua };
     if (T.sec() && isSchoolDay() && new Date().getHours() >= 8 && new Date().getHours() < 15 && !attTaken(S.sec, T.today()) && T.studentsOf(S.sec).length) b.class = { n: "!" };
     return b;
   }

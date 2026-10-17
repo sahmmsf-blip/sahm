@@ -173,6 +173,7 @@
           <div class="card pad" style="margin-top:12px"><h3 style="font-size:15px;margin-bottom:10px">${ic("bolt", "sm")} الرصد اليومي</h3><div class="stats-inline"><span>إيجابي <b style="color:var(--ok)">${pos}</b></span><span>سلبي <b style="color:var(--danger)">${neg}</b></span></div>
             <div class="log" style="margin-top:8px">${evs.slice(0, 10).map((e) => { const t = S.eventTypes.find((x) => x.id === e.event_type_id) || {};
               return `<div class="lr"><span>${esc(t.icon || "•")}</span><span class="grow">${esc(t.label || "")}</span><span class="tiny">${esc(T.fmtD(e.on_date))}</span></div>`; }).join("") || '<p class="tiny">لا أحداث.</p>'}</div></div>
+          <div class="card pad" style="margin-top:12px" id="sPrac"><h3 style="font-size:15px;margin-bottom:8px">${ic("spark", "sm")} التدريب الذاتي</h3><p class="tiny">جارٍ التحميل…</p></div>
           ${rk.why.length ? `<div class="card pad" style="margin-top:12px"><h3 style="font-size:15px;margin-bottom:8px">${ic("spark", "sm")} لماذا يحتاج دعمًا؟</h3><ul style="margin:0;padding-inline-start:18px;font-size:13.5px">${rk.why.map((w) => `<li>${esc(w)}</li>`).join("")}</ul></div>` : ""}
         </div></div>`;
       el.innerHTML = h;
@@ -186,6 +187,12 @@
           el.querySelector(".prof-head .toolbar").appendChild(bt); }
         if (ph.status === "pending") { const p = document.createElement("a"); p.href = "#people"; p.className = "pill gold"; p.textContent = "صورة جديدة بانتظار موافقتك"; el.querySelector(".prof-head .grow").appendChild(p); }
       }).catch(() => {});
+      T.q(T.sb.from("practice_log").select("is_correct,at").eq("student_id", id)).then((rows) => {
+        const box = el.querySelector("#sPrac"); if (!box) return;
+        const n = rows.length, okN = rows.filter((r) => r.is_correct).length, d = (x) => String(x).slice(0, 10), days = new Set(rows.map((r) => d(r.at))).size;
+        const wk = rows.filter((r) => Date.now() - new Date(r.at) < 7 * 864e5).length, last = rows.map((r) => r.at).sort().pop();
+        box.innerHTML = `<h3 style="font-size:15px;margin-bottom:10px">${ic("spark", "sm")} التدريب الذاتي</h3>` + (n ? `<div class="stats-inline"><span>أسئلة <b>${n}</b></span><span>الدقّة <b>${Math.round((okN / n) * 100)}٪</b></span><span>أيام <b>${days}</b></span><span>هذا الأسبوع <b>${wk}</b></span></div>
+          <div class="tiny" style="margin-top:6px">آخر تدريب ${esc(U.ago(last))}</div>` : '<p class="tiny" style="margin:0">لم يتدرّب بعد.</p>'); }).catch(() => {});
       T.loadTiers(st.section_id).then((m) => { const t = m[id], box = el.querySelector("#sTier"); if (!t || !box) return; const d = T.TIER[t.tier];
         box.innerHTML = `<span class="pill ${d.cls}" title="${esc(d.d)}">${d.sym} مستوى التمايز: ${d.n}</span> آخر معدل ${T.nf(t.avg, 1)}٪ من ${t.n} تقييمات`; });
       try {

@@ -89,7 +89,7 @@
     const extra = {}; exx.forEach((x) => (extra[x.id] = x));
     S.exams = boot.exams.map((e) => Object.assign({}, e, extra[e.id] || {})); numberExams();
     S.alertsSrv = boot.alerts || []; S.nq = boot.n_questions;
-    loadPhotoPending(); loadPhotos();
+    loadPhotoPending(); loadPhotos(); loadAsks();
     const counts = {}; boot.sections.forEach((s) => (counts[s.id] = s));
     S.sections = sections.map((s) => Object.assign({}, s, { n: (counts[s.id] || {}).n || 0, n_cred: (counts[s.id] || {}).n_cred || 0 }));
     S.students = students;
@@ -129,6 +129,11 @@
   const av = (id, size) => S.photos[id] ? `<img class="sav" src="${esc(S.photos[id])}" alt="" style="width:${size || 26}px;height:${size || 26}px">` : "";
   // دائرة الطالب: صورته إن وُجدت، وإلا الحرف الأول من اسمه
   const avBox = (st, size) => { const z = size || 40; return S.photos[st.id] ? av(st.id, z) : `<span class="avatar avb" style="width:${z}px;height:${z}px;font-size:${Math.round(z * 0.4)}px">${esc(U.firstName(st.full_name || "").slice(0, 1))}</span>`; };
+  // أسئلة الطلبة (اسأل معلّمي)
+  async function loadAsks() {
+    try { S.asks = await q(sb.from("asks").select("*").order("created_at", { ascending: false })); } catch (e) { S.asks = []; }
+    try { fillShell(); } catch (e) {}
+  }
   async function loadPhotoPending() {
     try { const r = await q(sb.from("student_photos").select("student_id").eq("status", "pending")); S.photoPending = r.map((x) => x.student_id); }
     catch (e) { S.photoPending = []; }
@@ -143,8 +148,8 @@
   }
 
   // ---------- ترقيم الأدوات تلقائيًّا ----------
-  const CATN = { worksheet: "ورقة العمل", quiz: "الكويز", exam: "الاختبار", practice: "التدريب" };
-  const exCat = (e) => e.cat || (e.tool === "worksheet" ? "worksheet" : e.kind === "quiz" ? "quiz" : /written/.test(e.kind || "") ? "exam" : "practice");
+  const CATN = { worksheet: "ورقة العمل", quiz: "الكويز", exam: "الاختبار", practice: "التدريب", exit: "بطاقة الخروج" };
+  const exCat = (e) => e.cat || (e.tool === "worksheet" ? "worksheet" : e.tool === "exit" ? "exit" : e.kind === "quiz" ? "quiz" : /written/.test(e.kind || "") ? "exam" : "practice");
   function numberExams() {
     const by = {};
     S.exams.filter((e) => e.status !== "draft").slice().sort((a, b) => (a.starts_at < b.starts_at ? -1 : a.starts_at > b.starts_at ? 1 : (a.created_at || "") < (b.created_at || "") ? -1 : 1))
@@ -152,7 +157,7 @@
     S.exams.forEach((e) => { e.cat = exCat(e); if (!e.label) e.label = CATN[e.cat] + (e.status === "draft" ? " (مسودة)" : " " + e.no); });
   }
   const exTitle = (e) => (e ? (e.label ? e.label + " — " : "") + e.title : "");
-  const exKind = (e) => (e.tool === "worksheet" ? KIND.worksheet : KIND[e.kind] || "") + (e.paper ? " · ورقي" : "") + (e.differentiated ? " · متمايز" : "");
+  const exKind = (e) => (e.tool === "worksheet" ? KIND.worksheet : e.tool === "exit" ? "بطاقة خروج" : KIND[e.kind] || "") + (e.paper ? " · ورقي" : "") + (e.differentiated ? " · متمايز" : "");
   // مستويات التمايز لكل شعبة (من الخادم)، تُحدَّث عند الطلب
   async function loadTiers(secId, force) {
     S.tiers = S.tiers || {};
@@ -233,7 +238,7 @@
   const NAV = [
     { g: "القيادة" }, { v: "dash", t: "لوحة القيادة", ic: "home" },
     { g: "داخل الصف" }, { v: "class", t: "الحصة الآن", ic: "bolt" }, { v: "grid", t: "رصد النتاجات", ic: "target" }, { v: "marks", t: "العلامات", ic: "award" }, { v: "rank", t: "الترتيب ولوحة الشرف", ic: "spark" },
-    { g: "أدوات التقويم" }, { v: "bank", t: "بنك الأسئلة", ic: "layers" }, { v: "exams", t: "الاختبارات والكويزات", ic: "file" }, { v: "sheets", t: "أوراق العمل", ic: "book" },
+    { g: "أدوات التقويم" }, { v: "bank", t: "بنك الأسئلة", ic: "layers" }, { v: "lessons", t: "صفحات الدروس (فيديو وملخص)", ic: "video" }, { v: "asks", t: "أسئلة الطلبة", ic: "chat" }, { v: "exams", t: "الاختبارات والكويزات", ic: "file" }, { v: "sheets", t: "أوراق العمل", ic: "book" },
     { g: "الإدارة" }, { v: "people", t: "الطلبة والشعب", ic: "users" }, { v: "records", t: "السجلات والطباعة", ic: "printer" }, { v: "settings", t: "الإعدادات", ic: "key" }
   ];
   const BNAV = [["dash", "home", "القيادة"], ["class", "bolt", "الحصة"], ["grid", "target", "النتاجات"], ["exams", "file", "الاختبارات"], ["_more", "list", "المزيد"]];
@@ -385,7 +390,7 @@
     });
   }
 
-  window.T = { loadPhotoPending, loadPhotos, av, avBox, sb, S, LV, LVD, KIND, TIER, CATN, exTitle, exKind, numberExams, loadTiers, tierOf, toolSeq, mLabel, STATE, ATT, AR_M, rpc, q, all, guard, today, fmtD, nf, opt, empty, parseTSV, parseDate, loadScript, XLSX_URL,
+  window.T = { loadAsks, loadPhotoPending, loadPhotos, av, avBox, sb, S, LV, LVD, KIND, TIER, CATN, exTitle, exKind, numberExams, loadTiers, tierOf, toolSeq, mLabel, STATE, ATT, AR_M, rpc, q, all, guard, today, fmtD, nf, opt, empty, parseTSV, parseDate, loadScript, XLSX_URL,
     loadAll, loadQuestions, refreshExams, sec, secName, studentsOf, semUnits, outcomesOfUnits, toolName, W,
     buildShell, fillShell, view, route, go, every, wireLogin, openSearch, NAV };
 })();
