@@ -82,7 +82,7 @@
       q(sb.from("units").select("*").order("seq")), q(sb.from("lessons").select("*").order("seq")), all("outcomes", "*", "seq"),
       q(sb.from("tools").select("*").order("sort")), q(sb.from("event_types").select("*").order("sort")),
       all("mastery", "*", "created_at"), all("exam_marks", "*"), all("daily_events", "*", "created_at"), all("attendance", "*"),
-      q(sb.from("exams").select("id,secure_mode,max_violations,mailed_at,tool,paper,differentiated,show_answers,created_at"))
+      exExtra()
     ]);
     S.me = me; S.subject = boot.subject || {}; S.tools = tools; S.eventTypes = ets.filter((e) => e.is_active !== false);
     S.mastery = mastery; S.marks = marks; S.events = events; S.att = att;
@@ -132,6 +132,7 @@
   // أسئلة الطلبة (اسأل معلّمي)
   async function loadAsks() {
     try { S.asks = await q(sb.from("asks").select("*").order("created_at", { ascending: false })); } catch (e) { S.asks = []; }
+    try { S.printPending = (await q(sb.from("print_orders").select("id").eq("status", "pending"))).length; } catch (e) { S.printPending = 0; }
     try { fillShell(); } catch (e) {}
   }
   async function loadPhotoPending() {
@@ -139,8 +140,15 @@
     catch (e) { S.photoPending = []; }
     if (S.photoPending.length && S.cur === "dash") { try { T.route(); } catch (e) {} }
   }
+  // أعمدة إضافية للاختبارات (blueprint بعد هجرة 015؛ وإن لم تُطبَّق بعد تُحمَّل بقية الأعمدة)
+  const EXC = "id,secure_mode,max_violations,mailed_at,tool,paper,differentiated,show_answers,created_at";
+  // allow_calc (الآلة الحاسبة) يظهر بعد تنفيذ 016؛ قبلها نرجع للأعمدة السابقة دون أي عطل
+  function exExtra() {
+    return q(sb.from("exams").select(EXC + ",blueprint,allow_calc")).then((r) => { S.calcCol = true; return r; })
+      .catch(() => { S.calcCol = false; return q(sb.from("exams").select(EXC + ",blueprint")).catch(() => q(sb.from("exams").select(EXC))); });
+  }
   async function refreshExams() {
-    const [boot, exx] = await Promise.all([rpc("t_bootstrap"), q(sb.from("exams").select("id,secure_mode,max_violations,mailed_at,tool,paper,differentiated,show_answers,created_at"))]);
+    const [boot, exx] = await Promise.all([rpc("t_bootstrap"), exExtra()]);
     const extra = {}; exx.forEach((x) => (extra[x.id] = x));
     S.exams = boot.exams.map((e) => Object.assign({}, e, extra[e.id] || {})); numberExams();
     S.alertsSrv = boot.alerts || []; S.nq = boot.n_questions;
@@ -239,7 +247,7 @@
     { g: "القيادة" }, { v: "dash", t: "لوحة القيادة", ic: "home" },
     { g: "داخل الصف" }, { v: "class", t: "الحصة الآن", ic: "bolt" }, { v: "grid", t: "رصد النتاجات", ic: "target" }, { v: "marks", t: "العلامات", ic: "award" }, { v: "rank", t: "الترتيب ولوحة الشرف", ic: "spark" },
     { g: "أدوات التقويم" }, { v: "bank", t: "بنك الأسئلة", ic: "layers" }, { v: "lessons", t: "صفحات الدروس (فيديو وملخص)", ic: "video" }, { v: "asks", t: "أسئلة الطلبة", ic: "chat" }, { v: "exams", t: "الاختبارات والكويزات", ic: "file" }, { v: "sheets", t: "أوراق العمل", ic: "book" },
-    { g: "الإدارة" }, { v: "people", t: "الطلبة والشعب", ic: "users" }, { v: "records", t: "السجلات والطباعة", ic: "printer" }, { v: "settings", t: "الإعدادات", ic: "key" }
+    { g: "الإدارة" }, { v: "people", t: "الطلبة والشعب", ic: "users" }, { v: "visitors", t: "زوّار القسم العام", ic: "chart" }, { v: "records", t: "السجلات والطباعة", ic: "printer" }, { v: "settings", t: "الإعدادات", ic: "key" }
   ];
   const BNAV = [["dash", "home", "القيادة"], ["class", "bolt", "الحصة"], ["grid", "target", "النتاجات"], ["exams", "file", "الاختبارات"], ["_more", "list", "المزيد"]];
   const ALIAS = { exam: "exams", student: "people" };

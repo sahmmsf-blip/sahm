@@ -101,6 +101,7 @@
     if (k === "go" && arg) { history.replaceState(null, "", location.pathname); setTimeout(() => startExam(arg, "remote", false), 50); }
     const fn = { exams: pExams, upcoming: pUpcoming, results: pResults, outcomes: pOutcomes, behavior: pBehavior, tips: pTips, me: pMe, rank: pRank,
       practice: pPractice, lesson: pLesson, mistakes: pMistakes, progress: pProgress, ask: pAsk }[k];
+    calcOff();
     $("dash").innerHTML = fn ? fn(arg) : dashHome();
     if (ASYNC[k]) ASYNC[k](arg);
     wire(); wirePhoto(); if (k === "results") wireResults(); if (k === "behavior") wireBehavior(); if (k === "tips" || !k) wireTips(); clearInterval(D.cdT); D.cdT = setInterval(tickCountdowns, 30000);
@@ -523,6 +524,8 @@
         <div id="pqFb"></div></div>`;
     $("prX").onclick = endPractice;
     document.querySelectorAll(".pq .opt").forEach((b) => (b.onclick = () => answerQ(+b.dataset.k)));
+    calcOn({ root: $("dash"), q: () => { const nx = document.getElementById("pqNext");
+      return { el: document.querySelector("#dash .pq"), label: (PR.mode === "mistakes" ? "دفتر أخطائي" : "تدريب") + " · السؤال " + (PR.i + 1) + " من " + PR.qs.length, next: nx ? () => nx.click() : "off" }; } });
   }
   async function answerQ(k) {
     const q = PR.qs[PR.i]; document.querySelectorAll(".pq .opt").forEach((b) => (b.disabled = true));
@@ -539,6 +542,7 @@
     if (r.streak > (PR.streak0 || 0) && !PR.today0) { PR.today0 = true; toast("🔥 سلسلتك الآن " + r.streak + (r.streak === 1 ? " يوم" : " أيام") + " — استمر!"); }
   }
   async function endPractice() {
+    calcOff();
     const n = PR.done, p = n ? Math.round((PR.ok / n) * 100) : 0;
     try { const x = await call("student_practice_home"); if (x.ok) D.pr = x; } catch (e) {}
     $("dash").innerHTML = crumb("نتيجة التدريب") + (n ? `<div class="card pad" style="text-align:center"><div class="score-ring" style="--p:${p}"><div><div><b class="num">${PR.ok}/${n}</b><span class="tiny">${p}٪</span></div></div></div>
@@ -812,6 +816,24 @@
     $("rBody").innerHTML = h; show("vResult");
   }
 
+  // ===================== الآلة الحاسبة العلمية (fx-82MS) =====================
+  function calcOn(o) { if (window.SahmCalc) window.SahmCalc.attach(o); }
+  function calcOff() { if (window.SahmCalc) window.SahmCalc.detach(); }
+  function calcExam(m) {
+    if (!X.a) return;
+    if (m && m.calc === false) { calcOff(); return; } // المعلّم أوقفها لهذه الأداة
+    calcOn({ root: $("xCard"), host: document.querySelector("#vExam .exam-top .container"), q: () => {
+      const qs = X.a.questions, n = qs.length;
+      if (X.official) {
+        if (X.pc == null) { const top = document.querySelector("#vExam .exam-top").getBoundingClientRect().bottom;
+          const li = [...document.querySelectorAll("#xCard .pq")].find((x) => x.getBoundingClientRect().bottom > top + 40); X.pc = li ? +li.id.slice(3) : 0; }
+        const k = Math.max(0, Math.min(n - 1, X.pc)), to = (j) => () => { X.pc = j; const li = document.getElementById("pq-" + j); if (li) li.scrollIntoView({ block: "start" }); };
+        return { el: document.getElementById("pq-" + k), label: "السؤال " + (k + 1) + " من " + n, prev: k > 0 ? to(k - 1) : "off", next: k < n - 1 ? to(k + 1) : "off" };
+      }
+      return { el: $("xCard"), label: "السؤال " + (X.i + 1) + " من " + n, prev: X.a.allow_back && X.i > 0 ? () => go(X.i - 1) : "off", next: X.i < n - 1 ? () => go(X.i + 1) : "off" };
+    } });
+  }
+
   // ===================== بدء الاختبار =====================
   async function startExam(id, mode, running) {
     let code = null;
@@ -837,7 +859,7 @@
 
   function lsKey() { return "sahm_ans_" + X.a.attempt; }
   function beginExam(a) {
-    X.a = a; X.i = 0; X.flags = {}; X.fsExits = 0; X.submitting = false;
+    X.a = a; X.i = 0; X.flags = {}; X.fsExits = 0; X.submitting = false; X.official = null; X.pc = null;
     X.offset = new Date(a.now).getTime() - Date.now();
     X.ans = Object.assign({}, a.answers || {});
     try { const loc = JSON.parse(localStorage.getItem(lsKey()) || "null"); if (loc) Object.assign(X.ans, loc); } catch (e) {}
@@ -849,7 +871,7 @@
     $("xSaved").textContent = "محفوظ";
     armGuard(a);
   }
-  function stopExam() { clearInterval(X.timer); clearTimeout(X.saveT); X.a = null; disarmGuard(); }
+  function stopExam() { calcOff(); clearInterval(X.timer); clearTimeout(X.saveT); X.a = null; X.official = null; $("xCard").classList.remove("ppr"); offRow().classList.remove("hide"); disarmGuard(); }
   function remaining() { return new Date(X.a.deadline).getTime() - (Date.now() + X.offset); }
   function tick() {
     if (!X.a) return;
@@ -858,7 +880,46 @@
     $("xTimer").classList.toggle("low", ms < 120000);
     if (ms <= 0 && !X.submitting) { toast("انتهى الوقت — تُسلَّم إجاباتك الآن"); submit(true); }
   }
+  // ===== الاختبار الرسمي (الأول/النهائي): ورقة امتحان إلكترونية بالترويسة الرسمية =====
+  const offRow = () => document.getElementById("xPrev").parentElement;
+  function paperHead(o) {
+    const img = (u, alt) => (u ? `<img src="${esc(u)}" alt="${alt}">` : "");
+    const d = o.date ? String(o.date).split("-").reverse().join("/") : "";
+    return `<div class="ppr-h"><div class="ppr-lg">${img(o.logo_min, "شعار وزارة التربية والتعليم")}</div>
+        <div class="ppr-c"><b>المملكة الأردنية الهاشمية</b><b>وزارة التربية والتعليم</b>${o.directorate ? `<span>مديرية التربية والتعليم ${esc(o.directorate)}</span>` : ""}<span>${esc(o.school || "")}</span></div>
+        <div class="ppr-lg">${img(o.logo_school, "شعار المدرسة")}</div></div>
+      <div class="ppr-t"><h2>${esc(o.title || (o.kind === "final_written" ? "الاختبار النهائي" : "الاختبار الأول"))}</h2><span>مبحث ${esc(o.subject || "")} · ${esc(o.grade || "")}${o.year ? " · العام الدراسي " + esc(o.year) : ""}</span></div>
+      <div class="ppr-i"><span>اسم الطالب: <b>${esc((GD.meta && GD.meta.name) || "")}</b></span><span>الشعبة: <b>${esc(o.section || "")}</b></span><span>التاريخ: <b dir="ltr">${esc(d)}</b></span>
+        <span>مدة الاختبار: <b>${esc(o.duration || "")}</b> دقيقة</span><span>عدد الأسئلة: <b>${esc(o.n || "")}</b></span><span>العلامة الكلية: <b>${esc(o.marks || "")}</b></span></div>
+      <div class="ppr-n"><b>تعليمات:</b> أجب عن جميع الأسئلة الآتية وعددها (${esc(o.n || "")})، باختيار رمز الإجابة الصحيحة لكل سؤال. الأسئلة متساوية العلامات، وتُحفظ إجابتك تلقائيًّا، ويمكنك مراجعتها قبل التسليم.</div>`;
+  }
+  function renderPaper() {
+    const qs = X.a.questions, n = qs.length, o = X.official;
+    offRow().classList.add("hide");
+    $("xCard").classList.add("ppr");
+    $("xCard").innerHTML = paperHead(o) + '<ol class="ppr-q">' + qs.map((q, k) => `<li class="pq" id="pq-${k}" data-q="${esc(q.id)}"><div class="pq-h"><span class="pq-n">${k + 1}</span><div class="stem">${esc(q.stem)}</div>
+        <button type="button" class="pq-f ${X.flags[q.id] ? "on" : ""}" data-f="${k}" title="علّم للمراجعة">${ic("flag", "sm")}</button></div>
+        ${q.img ? `<img class="qimg" src="${esc(q.img)}" alt="صورة السؤال">` : ""}
+        <div class="opts" role="radiogroup">${q.opts.map((op, j) => `<button class="opt" role="radio" data-k="${op.k}" aria-checked="${X.ans[q.id] === op.k}"><span class="L">${L[j]}</span><span>${esc(op.t)}</span></button>`).join("")}</div></li>`).join("") +
+      '</ol><div class="ppr-end">انتهت الأسئلة — مع تمنياتنا لكم بالتوفيق والنجاح</div>';
+    $("xCard").querySelectorAll(".pq").forEach((li) => { const qid = li.dataset.q;
+      li.querySelectorAll(".opt").forEach((btn) => (btn.onclick = () => choose(qid, +btn.dataset.k))); });
+    $("xCard").querySelectorAll("[data-f]").forEach((btn) => (btn.onclick = () => { const q = qs[+btn.dataset.f]; X.flags[q.id] = !X.flags[q.id]; btn.classList.toggle("on", !!X.flags[q.id]); paperNav(); }));
+    paperNav();
+  }
+  function paperNav() {
+    const qs = X.a.questions, n = qs.length, answered = qs.filter((x) => X.ans[x.id] !== undefined && X.ans[x.id] !== null).length;
+    $("xProg").textContent = "أجبت " + answered + " من " + n; $("xBar").style.width = Math.round((answered / n) * 100) + "%";
+    $("xNav").innerHTML = qs.map((x, k) => `<button class="${[X.ans[x.id] !== undefined && X.ans[x.id] !== null ? "done" : "", X.flags[x.id] ? "flag" : ""].join(" ")}" data-q="${k}" aria-label="السؤال ${k + 1}">${k + 1}</button>`).join("");
+    $("xNav").querySelectorAll("[data-q]").forEach((b) => (b.onclick = () => { const li = document.getElementById("pq-" + b.dataset.q); if (li) li.scrollIntoView({ behavior: "smooth", block: "center" }); }));
+  }
+  function paperMark(qid) {
+    const li = $("xCard").querySelector(`.pq[data-q="${CSS.escape(qid)}"]`); if (li) li.querySelectorAll(".opt").forEach((b) => b.setAttribute("aria-checked", +b.dataset.k === X.ans[qid]));
+    paperNav();
+  }
   function render() {
+    if (X.official) return renderPaper();
+    offRow().classList.remove("hide"); $("xCard").classList.remove("ppr");
     const qs = X.a.questions, q = qs[X.i], n = qs.length;
     const answered = qs.filter((x) => X.ans[x.id] !== undefined && X.ans[x.id] !== null).length;
     $("xProg").textContent = "السؤال " + (X.i + 1) + " من " + n + " · أجبت " + answered;
@@ -883,7 +944,7 @@
     X.i = Math.max(0, Math.min(X.a.questions.length - 1, k)); render(); window.scrollTo({ top: 0, behavior: "smooth" });
   }
   function choose(qid, k) {
-    X.ans[qid] = k; X.dirty = true; render();
+    X.ans[qid] = k; X.dirty = true; if (X.official) { X.pc = X.a.questions.findIndex((x) => x.id === qid); paperMark(qid); } else render();
     try { localStorage.setItem(lsKey(), JSON.stringify(X.ans)); } catch (e) {}
     $("xSaved").textContent = "يُحفظ…";
     clearTimeout(X.saveT); X.saveT = setTimeout(save, 1200);
@@ -932,9 +993,10 @@
     paste: "اللصق ممنوع أثناء الاختبار", print: "الطباعة ممنوعة أثناء الاختبار", screenshot: "رُصد زر لقطة الشاشة", devtools: "رُصد فتح أدوات المطوّر", context: "القائمة ممنوعة", shortcut: "هذا الاختصار ممنوع" };
   async function armGuard(a) {
     GD.on = false; GD.meta = null; GD.last = {}; GD.w0 = window.innerWidth;
-    let m; try { m = await call("student_exam_meta", { p_attempt: a.attempt }); } catch (e) { return; }
-    if (!m || !m.ok || !X.a) return;
-    GD.meta = m; GD.on = !!m.strict;
+    let m; try { m = await call("student_exam_meta", { p_attempt: a.attempt }); } catch (e) { calcExam(null); return; }
+    if (!m || !m.ok || !X.a) { calcExam(null); return; }
+    GD.meta = m; GD.on = !!m.strict; calcExam(m);
+    if (m.official && X.a) { X.official = m.official; render(); window.scrollTo(0, 0); }
     const wm = $("wmark");
     if (GD.on) {
       const txt = esc(m.name + " · " + (m.nid_tail ? "****" + m.nid_tail : "") + " · " + new Date().toLocaleDateString("ar-JO-u-nu-latn"));

@@ -13,15 +13,16 @@
     const nq = (c) => S.exams.filter((x) => x.cat === c && x.status !== "draft").length;
     let h = `<div class="vhead"><div><h2>${ws ? ex.length + " ورقة عمل" : ex.length + " أداة"}</h2><p>${ws
         ? "ورقة العمل تُبنى من بنك الأسئلة، تُطبع لكل طالب بنموذج يناسب مستواه (أو تُحل إلكترونيًّا)، وتُرصد في النتاجات بأداة «ورقة العمل»."
-        : `الكويزات ${nq("quiz")} · الاختبارات ${nq("exam")} · رابط الطلبة: <a href="index.html" target="_blank">${esc(new URL("index.html", location.href).href)}</a>`}</p></div>
+        : `الكويزات ${nq("quiz")} · الاختبارات ${nq("exam")} · رابط الطلبة: <a href="students.html" target="_blank">${esc(new URL("students.html", location.href).href)}</a>`}</p></div>
       <div class="toolbar">${ws ? `<button class="btn primary" id="exNew">${ic("book", "sm")}ورقة عمل جديدة</button>`
-        : `<button class="btn primary" id="exNew">${ic("file", "sm")}كويز / اختبار جديد</button><button class="btn outline sm" id="exLink">نسخ رابط الطلبة</button>`}</div></div>`;
+        : `<button class="btn primary" id="exNew">${ic("file", "sm")}كويز / اختبار جديد</button><button class="btn gold" id="exOff">${ic("award", "sm")}اختبار رسمي (الأول / النهائي)</button><button class="btn outline sm" id="exLink">نسخ رابط الطلبة</button>`}</div></div>`;
     groups.forEach(([k, t]) => { const l = ex.filter((x) => x.state === k); if (l.length) h += `<div class="sect"><h3>${t} <span class="tiny">${l.length}</span></h3><div class="g2">` + l.map(card).join("") + "</div></div>"; });
     if (!ex.length) h += ws ? T.empty("book", "لا أوراق عمل بعد", "أنشئ ورقة عمل: اختر الدروس والعدد، وتأخذ كل مجموعة مستوى نموذجها المناسب تلقائيًّا.")
       : T.empty("file", "لا اختبارات بعد", "أنشئ كويزًا أو اختبارًا يسحب من بنك الأسئلة لكل طالب مجموعة مختلفة.");
     el.innerHTML = h;
     el.querySelector("#exNew").onclick = () => editExam(null, ws ? "worksheet" : null);
-    const lk = el.querySelector("#exLink"); if (lk) lk.onclick = () => { const u = new URL("index.html", location.href).href; navigator.clipboard.writeText(u).then(() => toast("نُسخ: " + u), () => toast(u)); };
+    const off = el.querySelector("#exOff"); if (off) off.onclick = () => officialExam(null);
+    const lk = el.querySelector("#exLink"); if (lk) lk.onclick = () => { const u = new URL("students.html", location.href).href; navigator.clipboard.writeText(u).then(() => toast("نُسخ: " + u), () => toast(u)); };
     bind(el);
     if (ex.some((x) => x.state === "open")) T.every(30000, async () => { await T.refreshExams(); if (S.cur === (ws ? "sheets" : "exams")) T.route(); });
   }
@@ -58,7 +59,7 @@
   }
   function bind(root) { root.querySelectorAll("[data-act]").forEach((btn) => (btn.onclick = () => action(btn.dataset.ex, btn.dataset.act))); }
   async function action(id, act) {
-    if (act === "edit") return editExam(id);
+    if (act === "edit") { const x0 = S.exams.find((e) => e.id === id); return x0 && x0.blueprint && /written/.test(x0.kind) ? officialExam(id) : editExam(id); }
     if (act === "report") return T.go("#exam/" + id);
     if (act === "delete" && !(await confirmSheet("حذف الاختبار؟", "لا يمكن التراجع.", "احذف", true))) return;
     if (act === "close_now" && !(await confirmSheet("إغلاق الاختبار الآن؟", "من يحلّ الآن تُسلَّم إجاباته المحفوظة تلقائيًّا.", "أغلق", true))) return;
@@ -66,7 +67,7 @@
       const r = await T.rpc("t_exam_action", { p_id: id, p_action: act });
       if (act === "duplicate" && r && r.id) { const src = S.exams.find((e) => e.id === id) || {};   // النسخة ترث نوع الأداة والتمايز والحماية
         await T.q(T.sb.from("exams").update({ tool: src.tool || null, paper: !!src.paper, differentiated: !!src.differentiated, show_answers: !!src.show_answers,
-          secure_mode: src.secure_mode !== false, max_violations: src.max_violations || 0 }).eq("id", r.id)); }
+          secure_mode: src.secure_mode !== false, max_violations: src.max_violations || 0, ...(S.calcCol ? { allow_calc: src.allow_calc !== false } : {}) }).eq("id", r.id)); }
       toast({ publish: "نُشر الاختبار", open_now: "فُتح الاختبار", close_now: "أُغلق الاختبار", reopen: "أُعيد فتح الاختبار", new_code: "رمز جديد: " + ((r && r.lab_code) || ""),
         duplicate: "أُنشئت نسخة (مسودة)", delete: "حُذف", draft: "صار مسودة" }[act] || "تم");
       await T.refreshExams(); if (act === "delete" && S.cur === "exam") T.go("#exams"); else T.route();
@@ -113,6 +114,7 @@
       <div class="row wrap" style="margin-top:10px;gap:14px"><label class="check"><input type="checkbox" id="eQS" ${e.shuffle_questions ? "checked" : ""}> خلط ترتيب الأسئلة</label>
         <label class="check"><input type="checkbox" id="eOS" ${e.shuffle_options ? "checked" : ""}> خلط الخيارات</label><label class="check"><input type="checkbox" id="eB" ${e.allow_back ? "checked" : ""}> السماح بالرجوع</label></div>
       <label class="check" style="margin-top:10px"><input type="checkbox" id="eAns" ${e.show_answers ? "checked" : ""}> <b>إظهار الإجابات الصحيحة للطلبة بعد انتهاء وقت الأداة للجميع</b></label>
+      ${S.calcCol ? `<label class="check" style="margin-top:10px"><input type="checkbox" id="eCalc" ${e.allow_calc !== false ? "checked" : ""}> <b>السماح بالآلة الحاسبة العلمية</b> <span class="tiny">(نمط fx-82MS المعتمدة في الوزارة — زر يفتحها الطالب عند الحاجة بجانب السؤال)</span></label>` : ""}
       <div class="tiny" style="margin:4px 0 0">يرى كل طالب أسئلته وإجابته والإجابة الصحيحة في «نتائجي» — فقط بعد أن يُغلق الاختبار أو ورقة العمل وينتهي وقت آخر طالب، فلا تتسرّب الإجابات لمن لم يحلّ بعد.</div>
       <div class="card pad" style="margin-top:14px;background:var(--gold-soft);border-color:transparent"><b>${ic("shield", "sm")} الحماية من الغش</b>
         <div class="row wrap" style="margin-top:10px;gap:14px"><label class="check"><input type="checkbox" id="eSec" ${e.secure_mode !== false ? "checked" : ""}> وضع الحماية (علامة مائية باسم الطالب، منع النسخ واللصق والطباعة، رصد الخروج ولقطة الشاشة)</label>
@@ -233,7 +235,8 @@
         const r = await T.rpc("t_save_exam", { p });
         const eid = (r && r.id) || id;
         if (eid) await T.q(T.sb.from("exams").update({ secure_mode: !paper && b.querySelector("#eSec").checked, max_violations: Math.max(0, +b.querySelector("#eMV").value || 0),
-          tool: isWs ? "worksheet" : x && x.tool === "exit" ? "exit" : null, paper, differentiated: dif, show_answers: b.querySelector("#eAns").checked }).eq("id", eid));
+          tool: isWs ? "worksheet" : x && x.tool === "exit" ? "exit" : null, paper, differentiated: dif, show_answers: b.querySelector("#eAns").checked,
+          ...(S.calcCol && b.querySelector("#eCalc") ? { allow_calc: b.querySelector("#eCalc").checked } : {}) }).eq("id", eid));
         closeSheet(); toast(publish ? (paper ? "اعتُمدت — افتحها لتوليد أوراق الطلبة وطباعتها" : "نُشر" + (r && r.lab_code ? " — رمز الجلسة " + r.lab_code : "")) : "حُفظ كمسودة");
         await T.refreshExams();
         if (publish && paper && eid) T.go("#exam/" + eid); else T.route();
@@ -241,6 +244,140 @@
     };
     b.querySelector("#eSaveP").onclick = () => save(true);
     b.querySelector("#eSaveD").onclick = () => save(false);
+  }
+
+  // ================= الاختبار الرسمي (الأول / النهائي): جدول مواصفات عادل =================
+  // كل طالب يأخذ العدد نفسه من كل خلية (درس × مستوى تفكير × صعوبة)، فلا يأخذ طالبٌ أسئلة حفظ وآخر أسئلة حل.
+  const SOLVE = ["تطبيق", "تحليل", "تقويم", "إبداع"], KNOW = ["تذكّر", "فهم"], DIFS = ["سهل", "متوسط", "صعب"];
+  const PROFS = { above: ["فوق المتوسط", [10, 50, 40]], hard: ["صعب", [5, 40, 55]], custom: ["مخصّص", null] };
+  const lrSplit = (total, ws) => { const sm = ws.reduce((a, b) => a + b, 0); if (!sm || total <= 0) return ws.map(() => 0);
+    const raw = ws.map((w) => (total * w) / sm), fl = raw.map(Math.floor); let rem = total - fl.reduce((a, b) => a + b, 0);
+    raw.map((r, i) => [r - fl[i], i]).sort((a, b) => b[0] - a[0]).slice(0, rem).forEach(([, i]) => fl[i]++); return fl; };
+  const fillBand = (cnt, pc, have) => { const c = lrSplit(cnt, pc); let extra = 0;
+    for (let i = 0; i < 3; i++) if (c[i] > have[i]) { extra += c[i] - have[i]; c[i] = have[i]; }
+    for (const i of [2, 1, 0]) { const t = Math.min(have[i] - c[i], extra); c[i] += t; extra -= t; }
+    return { c, miss: extra }; };
+  async function officialExam(id) {
+    await T.loadQuestions();
+    const x = id ? S.exams.find((e) => e.id === id) : null, bp = (x && x.blueprint) || {};
+    const locked = x && x.n_started > 0;
+    const allL = S.units.flatMap((u) => u.lessons);
+    const have = {};   // have[lesson][band] = [سهل, متوسط, صعب]
+    allL.forEach((l) => (have[l.id] = { s: [0, 0, 0], k: [0, 0, 0] }));
+    S.qs.forEach((q) => { const o = S.O[q.outcome_id]; if (!q.active || !o || !have[o.lesson.id]) return; const di = DIFS.indexOf(q.difficulty); if (di < 0) return;
+      (SOLVE.includes(q.bloom) ? have[o.lesson.id].s : KNOW.includes(q.bloom) ? have[o.lesson.id].k : [])[di]++; });
+    const st = { kind: x ? x.kind : (bp.kind || "first_written"), n: bp.n || 30, prof: bp.prof || "above", pc: (bp.pc || PROFS.above[1]).slice(), solve: bp.solve || 70,
+      on: (bp.on || []).filter((l) => S.L[l]), w: Object.assign({}, bp.w || {}) };
+    const start = new Date(Math.ceil(Date.now() / 300000) * 300000 + 86400000);
+    const e = x || { title: "", mode: "remote", starts_at: start.toISOString(), ends_at: new Date(start.getTime() + 2 * 3600000).toISOString(), duration_min: 60,
+      section_ids: S.sec ? [S.sec] : S.sections.map((z) => z.id), require_fullscreen: true, allow_back: true, secure_mode: true, max_violations: 3 };
+    const cap = (k) => { const sj = S.subject || {}; return T.nf((sj.max_mark || 100) * ((k === "final_written" ? sj.final_eval_pct : sj.first_eval_pct) || (k === "final_written" ? 40 : 30)) / 100); };
+    const defTitle = (k) => (k === "final_written" ? "الاختبار النهائي" : "الاختبار الأول") + " — " + (S.subject.name || "الثقافة المالية");
+    const b = openSheet(`<h3>${ic("award", "sm")} ${x ? "تعديل: " + esc(T.exTitle(x)) : "اختبار رسمي جديد — الأول أو النهائي"}</h3>
+      <div class="note" style="margin-bottom:12px">يحلّه الطالب على المنصة بشكل ورقة رسمية (ترويسة الوزارة وشعارا المدرسة والوزارة من «الإعدادات»). كل طالب يأخذ <b>جدول المواصفات نفسه</b> بأسئلة مختلفة من البنك،
+        وتُرصد علامته <b>تلقائيًّا</b> عند التسليم في خانة الاختبار من <b id="oCap"></b>.</div>
+      <div class="field"><span>نوع الاختبار</span><div class="seg" id="oK"><button type="button" data-k="first_written">الاختبار الأول (منتصف الفصل)</button><button type="button" data-k="final_written">الاختبار النهائي (نهاية الفصل)</button></div></div>
+      <label class="field" style="margin-top:10px"><span>العنوان</span><input class="input" id="oT" value="${esc(e.title || defTitle(st.kind))}"></label>
+      <div class="sect"><h3>١. الدروس الداخلة ووزن كل درس <span class="tiny">(الوزن نسبة من الاختبار)</span></h3>
+        <div class="row wrap" style="margin-bottom:8px"><button type="button" class="btn sm outline" id="oEq">وزّع بالتساوي</button><button type="button" class="btn sm outline" id="oByBank">حسب حجم البنك</button>
+          <button type="button" class="btn sm ghost" id="oNone">إلغاء الكل</button><span class="tiny" id="oWsum"></span></div>
+        <div class="ofx" id="oLs"></div></div>
+      <div class="sect"><h3>٢. عدد الأسئلة والمستوى ونوعها</h3>
+        <div class="fields three"><label class="field"><span>عدد الأسئلة</span><input class="input mono" type="number" min="5" max="100" id="oN" value="${st.n}"></label>
+          <div class="field" style="grid-column:span 2"><span>مستوى الاختبار</span><div class="seg" id="oP">${Object.entries(PROFS).map(([k, [t]]) => `<button type="button" data-p="${k}">${t}</button>`).join("")}</div></div></div>
+        <div class="prof" id="oPc" style="margin-top:8px">${DIFS.map((d, i) => `<label class="field"><span>${d} %</span><input class="input mono oPc" type="number" min="0" max="100" data-i="${i}" value="${st.pc[i]}"></label>`).join("")}</div>
+        <label class="field" style="margin-top:10px"><span>أسئلة الحل والتطبيق (أرقام، قيود، ترحيل، ترصيد، ميزان مراجعة، تحليل) — <b id="oSvL"></b></span>
+          <input type="range" min="40" max="90" step="5" id="oSv" value="${st.solve}"></label>
+        <p class="tiny" style="margin:2px 0 0">الباقي أسئلة فهم وتذكّر للمفاهيم. أسئلة البنك بنمط الوزارة، والسحب يتجنّب تكرار الصعوبة نفسها على طالب دون غيره.</p></div>
+      <div class="sect"><h3>٣. جدول المواصفات (يأخذه كل طالب كما هو)</h3><div id="oBp" class="tw"></div></div>
+      <div class="sect"><h3>٤. الوقت والمكان والحماية</h3>
+        <div class="fields three"><label class="field"><span>يفتح في</span><input class="input" type="datetime-local" id="oS" value="${toLocalInput(e.starts_at)}"></label>
+          <label class="field"><span>يُغلق في</span><input class="input" type="datetime-local" id="oE" value="${toLocalInput(e.ends_at)}"></label>
+          <label class="field"><span>مدة الاختبار (دقيقة)</span><input class="input mono" type="number" min="5" max="300" id="oD" value="${e.duration_min}"></label></div>
+        <div class="field" style="margin-top:10px"><span>الأجهزة</span><div class="seg" id="oM"><button type="button" data-m="remote">مختبر الحاسوب — يدخل الطالب كالعادة</button><button type="button" data-m="lab">مختبر الحاسوب برمز جلسة يعرضه المعلّم</button></div></div>
+        <div class="field" style="margin-top:10px"><span>الشعب</span><div class="row wrap">${S.sections.map((z) => `<label class="check"><input type="checkbox" class="oSec" value="${z.id}" ${(e.section_ids || []).includes(z.id) ? "checked" : ""}> ${esc(z.name)} <span class="tiny">(${z.n_cred}/${z.n} جاهز)</span></label>`).join("")}</div></div>
+        <div class="row wrap" style="margin-top:10px;gap:14px"><label class="check"><input type="checkbox" id="oSec" ${e.secure_mode !== false ? "checked" : ""}> وضع الحماية من الغش</label>
+          <label class="check"><input type="checkbox" id="oF" ${e.require_fullscreen ? "checked" : ""}> ملء الشاشة إجباري</label>
+          <label class="check"><input type="checkbox" id="oB" ${e.allow_back !== false ? "checked" : ""}> التنقّل بين الأسئلة</label>
+          <label class="row" style="gap:6px"><span class="tiny">إغلاق المحاولة بعد</span><input class="input mono sm" type="number" min="0" max="50" id="oMV" value="${e.max_violations || 0}" style="width:70px"><span class="tiny">مخالفات</span></label></div>
+        ${S.calcCol ? `<label class="check" style="margin-top:10px"><input type="checkbox" id="oCalc" ${e.allow_calc !== false ? "checked" : ""}> <b>السماح بالآلة الحاسبة العلمية</b> <span class="tiny">(نمط fx-82MS المعتمدة في الوزارة — زر يفتحها الطالب عند الحاجة بجانب السؤال)</span></label>` : ""}
+        <p class="tiny" style="margin-top:8px">محاولة واحدة لكل طالب، والأسئلة والخيارات مخلوطة، والنتيجة لا تظهر للطالب حتى يُغلق الاختبار. افتحه أو أغلقه بزر من قائمة الاختبارات في أي وقت.</p></div>
+      <div class="foot"><button class="btn primary grow" id="oSaveP">${ic("check", "sm")}حفظ ونشر</button><button class="btn outline grow" id="oSaveD">حفظ كمسودة</button></div>`, true);
+    const $b = (q) => b.querySelector(q);
+    let mode = e.mode || "remote";
+    const segSet = (sel, attr, v) => b.querySelectorAll(sel + " button").forEach((z) => z.setAttribute("aria-pressed", z.dataset[attr] === v));
+    const plan = () => {
+      const ls = allL.filter((l) => st.on.includes(l.id)), nl = lrSplit(st.n, ls.map((l) => +st.w[l.id] || 0));
+      return ls.map((l, i) => { const H = have[l.id], tot = nl[i], sCap = H.s.reduce((a, c) => a + c, 0), kCap = H.k.reduce((a, c) => a + c, 0);
+        let sN = Math.min(Math.round((tot * st.solve) / 100), sCap), kN = tot - sN; if (kN > kCap) { kN = kCap; sN = Math.min(sCap, tot - kN); }
+        const fs = fillBand(sN, st.pc, H.s), fk = fillBand(kN + fs.miss, st.pc, H.k);
+        let miss = fk.miss; if (miss) { const extra = fillBand(0, st.pc, H.s); for (const j of [2, 1, 0]) { const t = Math.min(H.s[j] - fs.c[j], miss); fs.c[j] += t; miss -= t; } }
+        return { l, tot, s: fs.c, k: fk.c, short: miss }; });
+    };
+    const draw = () => {
+      const k = st.kind; segSet("#oK", "k", k); segSet("#oP", "p", st.prof); segSet("#oM", "m", mode);
+      $b("#oCap").textContent = cap(k); $b("#oSvL").textContent = st.solve + "٪";
+      b.querySelectorAll(".oPc").forEach((inp) => { inp.value = st.pc[+inp.dataset.i]; inp.disabled = st.prof !== "custom" || locked; });
+      const P = plan(), byL = {}; P.forEach((r) => (byL[r.l.id] = r));
+      const wsum = st.on.reduce((a, l) => a + (+st.w[l] || 0), 0);
+      $b("#oWsum").textContent = st.on.length ? "مجموع الأوزان " + Math.round(wsum) + "٪" + (Math.round(wsum) !== 100 ? " (تُعاد نسبتها تلقائيًّا إلى ١٠٠٪)" : "") : "اختر الدروس الداخلة";
+      $b("#oLs").innerHTML = S.units.map((u) => `<div class="uh">الوحدة ${u.seq}: ${esc(u.title)}</div>` + u.lessons.map((l) => { const on = st.on.includes(l.id), r = byL[l.id], H = have[l.id];
+        return `<div class="lw ${on ? "" : "off"}"><input type="checkbox" class="oL" data-l="${l.id}" ${on ? "checked" : ""} ${locked ? "disabled" : ""}>
+          <span>الدرس ${l.seq}: ${esc(l.title)} <span class="tiny">· في البنك: حل ${H.s.reduce((a, c) => a + c, 0)} · فهم ${H.k.reduce((a, c) => a + c, 0)}</span></span>
+          <input class="input mono sm w oW" type="number" min="0" max="100" data-l="${l.id}" value="${on ? Math.round(+st.w[l.id] || 0) : ""}" ${on && !locked ? "" : "disabled"} placeholder="—">
+          <span class="nq" title="عدد أسئلة الدرس">${r ? r.tot : ""}</span></div>`; }).join("")).join("");
+      b.querySelectorAll(".oL").forEach((cb) => (cb.onchange = () => { const l = cb.dataset.l; if (cb.checked) { st.on.push(l); if (!st.w[l]) st.w[l] = st.on.length > 1 ? Math.round(100 / st.on.length) : 100; } else st.on = st.on.filter((z) => z !== l); draw(); }));
+      b.querySelectorAll(".oW").forEach((inp) => (inp.onchange = () => { st.w[inp.dataset.l] = Math.max(0, +inp.value || 0); draw(); }));
+      // جدول المواصفات
+      const T0 = { tot: 0, s: [0, 0, 0], k: [0, 0, 0], short: 0 };
+      P.forEach((r) => { T0.tot += r.tot; T0.short += r.short; for (let i = 0; i < 3; i++) { T0.s[i] += r.s[i]; T0.k[i] += r.k[i]; } });
+      const sTot = T0.s.reduce((a, c) => a + c, 0), kTot = T0.k.reduce((a, c) => a + c, 0), got = sTot + kTot;
+      const cells = (arr, H) => arr.map((v, i) => `<td class="${v > H[i] ? "short" : ""}">${v || "·"}</td>`).join("");
+      $b("#oBp").innerHTML = P.length ? `<table class="bpt"><thead><tr><th rowspan="2">الدرس</th><th rowspan="2">الوزن</th><th rowspan="2">الأسئلة</th><th colspan="3" class="solve">حل وتطبيق</th><th colspan="3" class="know">فهم وتذكّر</th></tr>
+          <tr>${DIFS.map((d) => `<th class="solve">${d}</th>`).join("")}${DIFS.map((d) => `<th class="know">${d}</th>`).join("")}</tr></thead><tbody>` +
+        P.map((r) => `<tr><td>و${r.l.unit.seq} · الدرس ${r.l.seq}: ${esc(r.l.title)}</td><td>${Math.round(((+st.w[r.l.id] || 0) / (wsum || 1)) * 100)}٪</td><td><b>${r.tot}</b></td>${cells(r.s, have[r.l.id].s)}${cells(r.k, have[r.l.id].k)}</tr>`).join("") +
+        `<tr class="tot"><td>المجموع</td><td>١٠٠٪</td><td>${got}</td>${T0.s.map((v) => `<td>${v}</td>`).join("")}${T0.k.map((v) => `<td>${v}</td>`).join("")}</tr></tbody></table>
+        <div class="row wrap tiny" style="margin-top:8px;gap:14px"><span>حل وتطبيق: <b>${got ? Math.round((sTot / got) * 100) : 0}٪</b></span><span>فهم وتذكّر: <b>${got ? Math.round((kTot / got) * 100) : 0}٪</b></span>
+          ${DIFS.map((d, i) => `<span>${d}: <b>${got ? Math.round(((T0.s[i] + T0.k[i]) / got) * 100) : 0}٪</b></span>`).join("")}</div>
+        ${T0.short || got < st.n ? `<div class="note warn" style="margin-top:8px">البنك لا يكفي لـ ${st.n - got} سؤالًا بهذه الإعدادات — خفّف الصعوبة أو أضف دروسًا أو أسئلة.</div>` : ""}`
+        : '<div class="empty">اختر الدروس الداخلة في الاختبار.</div>';
+      return { P, got };
+    };
+    b.querySelectorAll("#oK button").forEach((z) => (z.onclick = () => { if (locked) return; const old = defTitle(st.kind); st.kind = z.dataset.k; if ($b("#oT").value === old || !$b("#oT").value) $b("#oT").value = defTitle(st.kind); draw(); }));
+    b.querySelectorAll("#oP button").forEach((z) => (z.onclick = () => { if (locked) return; st.prof = z.dataset.p; if (PROFS[st.prof][1]) st.pc = PROFS[st.prof][1].slice(); draw(); }));
+    b.querySelectorAll(".oPc").forEach((inp) => (inp.onchange = () => { st.pc[+inp.dataset.i] = Math.max(0, +inp.value || 0); draw(); }));
+    b.querySelectorAll("#oM button").forEach((z) => (z.onclick = () => { mode = z.dataset.m; draw(); }));
+    $b("#oN").onchange = () => { st.n = Math.max(5, Math.min(100, +$b("#oN").value || 30)); $b("#oN").value = st.n; draw(); };
+    $b("#oSv").oninput = () => { st.solve = +$b("#oSv").value; draw(); };
+    $b("#oEq").onclick = () => { st.on.forEach((l) => (st.w[l] = Math.round(100 / st.on.length))); draw(); };
+    $b("#oByBank").onclick = () => { const tot = st.on.reduce((a, l) => a + have[l].s.concat(have[l].k).reduce((x, y) => x + y, 0), 0) || 1;
+      st.on.forEach((l) => (st.w[l] = Math.round((have[l].s.concat(have[l].k).reduce((x, y) => x + y, 0) / tot) * 100))); draw(); };
+    $b("#oNone").onclick = () => { st.on = []; draw(); };
+    if (locked) ["#oN", "#oSv"].forEach((q) => ($b(q).disabled = true));
+    draw();
+    const save = async (publish) => {
+      const { P, got } = draw(), rules = [];
+      P.forEach((r) => { if (r.s.some((v) => v)) rules.push({ lesson_ids: [r.l.id], blooms: SOLVE, easy: r.s[0], medium: r.s[1], hard: r.s[2] });
+        if (r.k.some((v) => v)) rules.push({ lesson_ids: [r.l.id], blooms: KNOW, easy: r.k[0], medium: r.k[1], hard: r.k[2] }); });
+      const p = { id: id || null, title: $b("#oT").value.trim(), kind: st.kind, mode, starts_at: fromLocalInput($b("#oS").value), ends_at: fromLocalInput($b("#oE").value),
+        duration_min: +$b("#oD").value, show_result: "after_close", max_attempts: 1, shuffle_questions: true, shuffle_options: true, allow_back: $b("#oB").checked,
+        require_fullscreen: $b("#oF").checked, section_ids: [...b.querySelectorAll(".oSec:checked")].map((c) => c.value), question_ids: [], selection: "random", draw_rules: rules, publish };
+      if (!p.title) return toast("اكتب عنوان الاختبار", true);
+      if (!st.on.length) return toast("اختر الدروس الداخلة في الاختبار", true);
+      if (!p.starts_at || !p.ends_at || p.ends_at <= p.starts_at) return toast("وقت الإغلاق يجب أن يكون بعد وقت الفتح", true);
+      if (publish && got < st.n) return toast("البنك لا يكفي لكل الأسئلة بهذه الإعدادات — راجع جدول المواصفات", true);
+      if (publish && !p.section_ids.length) return toast("اختر شعبة واحدة على الأقل", true);
+      const btn = $b(publish ? "#oSaveP" : "#oSaveD"); U.spin(btn, true, "جارٍ الحفظ…");
+      try {
+        const r = await T.rpc("t_save_exam", { p }), eid = (r && r.id) || id;
+        if (eid) await T.q(T.sb.from("exams").update({ secure_mode: $b("#oSec").checked, max_violations: Math.max(0, +$b("#oMV").value || 0), tool: null, paper: false,
+          differentiated: false, show_answers: false, ...(S.calcCol && $b("#oCalc") ? { allow_calc: $b("#oCalc").checked } : {}), blueprint: { v: 1, kind: st.kind, n: st.n, prof: st.prof, pc: st.pc, solve: st.solve, on: st.on, w: st.w } }).eq("id", eid));
+        closeSheet(); toast(publish ? "نُشر الاختبار الرسمي" + (r && r.lab_code ? " — رمز الجلسة " + r.lab_code : "") : "حُفظ كمسودة");
+        await T.refreshExams(); T.route();
+      } catch (err) { toast(err.message, true); U.spin(btn, false); }
+    };
+    $b("#oSaveP").onclick = () => save(true);
+    $b("#oSaveD").onclick = () => save(false);
   }
 
   // ================= صفحة الاختبار: النتائج والتحليل =================
@@ -505,5 +642,5 @@
       } catch (e) { toast(e.message, true); }
     };
   }
-  T.exams = { KINDS, editExam };
+  T.exams = { KINDS, editExam, officialExam };
 })();
