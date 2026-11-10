@@ -14,9 +14,19 @@
     fReq: ['جميع الأسئلة إلزامية', 'Every question is required', 'Toutes les questions sont obligatoires'],
     start: ['ابدأ الاستبيان', 'Start the survey', 'Commencer le questionnaire'],
     resume: ['متابعة من حيث توقفت', 'Continue where you left off', 'Reprendre là où vous vous êtes arrêté'],
-    privacy: ['تُستخدم إجاباتك لأغراض تدريس المادة فقط ولا يطّلع عليها غير محاضر المادة. أسئلة أساسيات الإدارة المالية تشخيصية ولا تدخل في أي علامة.',
-      'Your answers are used only for teaching this course and are seen only by the course lecturer. The financial management basics questions are diagnostic and do not count towards any grade.',
-      'Vos réponses servent uniquement à l’enseignement de ce cours et ne sont consultées que par l’enseignant. Les questions sur les bases de la gestion financière sont diagnostiques et ne comptent pour aucune note.'],
+    noteTitle: ['قبل أن تبدأ', 'Before you start', 'Avant de commencer'],
+    noteSeriousT: ['أجب بجدية وصدق', 'Answer seriously and honestly', 'Répondez avec sérieux et sincérité'],
+    noteSerious: ['تُبنى على إجاباتك طريقة شرح المادة ومستوى الأمثلة والتطبيقات. كلما كانت إجاباتك أدق كانت المادة أنسب لك ولزملائك.',
+      'The way this course is taught, and the level of its examples and exercises, is built on your answers. The more accurate they are, the better the course fits you and your classmates.',
+      'La manière d’enseigner ce cours, ainsi que le niveau des exemples et des exercices, repose sur vos réponses. Plus elles sont exactes, mieux le cours vous conviendra, à vous et à vos camarades.'],
+    noteQuizT: ['«لا أعرف» إجابة طبيعية', '“I don’t know” is a normal answer', '« Je ne sais pas » est une réponse normale'],
+    noteQuiz: ['في الاستبيان أسئلة عن أساسيات الإدارة المالية، هدفها الإلمام بوضع الطلبة قبل بدء المادة لا تقييمك. من الطبيعي أن تجيب «لا أعرف»، وهي أنفع من التخمين.',
+      'The survey includes questions on the basics of financial management. They are there to show where the class stands before the course begins, not to assess you. Answering “I don’t know” is normal, and more useful than a guess.',
+      'Le questionnaire comprend des questions sur les bases de la gestion financière. Elles servent à situer le niveau de la classe avant le début du cours, non à vous évaluer. Répondre « Je ne sais pas » est normal, et plus utile que de deviner.'],
+    notePrivacyT: ['إجاباتك لمحاضر المادة فقط', 'Your answers are for the lecturer only', 'Vos réponses sont réservées à l’enseignant'],
+    privacy: ['تُستخدم لأغراض تدريس المادة فقط، ولا يطّلع عليها غير محاضر المادة، ولا تدخل في أي علامة.',
+      'They are used only for teaching this course, are seen only by the course lecturer, and do not count towards any grade.',
+      'Elles servent uniquement à l’enseignement de ce cours, ne sont consultées que par l’enseignant et ne comptent pour aucune note.'],
     stepOf: ['الخطوة {n} من {t}', 'Step {n} of {t}', 'Étape {n} sur {t}'],
     welcome: ['البداية', 'Welcome', 'Accueil'],
     complete: ['اكتمل الاستبيان', 'Survey complete', 'Questionnaire terminé'],
@@ -122,7 +132,10 @@
         '<h1>' + esc(L(T.surveyTitle)) + '</h1><p class="lead">' + esc(L(T.lead)) + '</p>' +
         '<ul class="facts"><li>' + esc(L(T.fSteps)) + '</li><li>' + esc(L(T.fTime)) + '</li><li>' + esc(L(T.fReq)) + '</li></ul>' +
         '<div class="actions"><button class="btn btn-gold" id="btnStart" type="button">' + esc(L(hasDraft() ? T.resume : T.start)) + ' ' + arrow() + '</button></div></div>' +
-        '<p class="note card">' + esc(L(T.privacy)) + '</p></section>';
+        '<div class="note card"><h2>' + esc(L(T.noteTitle)) + '</h2><ul>' +
+        [[T.noteSeriousT, T.noteSerious], [T.noteQuizT, T.noteQuiz], [T.notePrivacyT, T.privacy]].map(function (n) {
+          return '<li><strong>' + esc(L(n[0])) + '</strong><span>' + esc(L(n[1])) + '</span></li>';
+        }).join('') + '</ul></div></section>';
     } else if (step >= S.length) {
       var name = String((done && done.name) || '').trim().split(/\s+/)[0] || '';
       h = '<section class="' + cls + '"><div class="card done"><div class="tick"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#ecd9a0" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>' +

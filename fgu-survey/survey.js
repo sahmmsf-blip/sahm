@@ -93,9 +93,9 @@
     {
       id: 'quiz',
       title: ['أساسيات الإدارة المالية', 'Financial management basics', 'Bases de la gestion financière'],
-      intro: ['ثمانية أسئلة قصيرة لا تدخل في أي علامة. إذا لم تعرف الإجابة فاختر «لا أعرف» ولا تخمّن.',
-        'Eight short questions that do not count towards any grade. If you are unsure, choose “I don’t know” rather than guessing.',
-        'Huit questions courtes qui ne comptent pour aucune note. En cas de doute, choisissez « Je ne sais pas » plutôt que de deviner.'],
+      intro: ['ثمانية أسئلة قصيرة هدفها الإلمام بوضع الطلبة قبل بدء المادة، ولا تدخل في أي علامة. من الطبيعي ألا تعرف بعض الإجابات؛ اختر «لا أعرف» ولا تخمّن.',
+        'Eight short questions meant to show where the class stands before the course begins. They do not count towards any grade. Not knowing some answers is normal: choose “I don’t know” rather than guessing.',
+        'Huit questions courtes pour situer le niveau de la classe avant le début du cours. Elles ne comptent pour aucune note. Il est normal de ne pas connaître certaines réponses : choisissez « Je ne sais pas » plutôt que de deviner.'],
       questions: [
         { id: 'q1', type: 'quiz', short: ['هدف الإدارة المالية', 'Goal of financial management', 'Objectif de la gestion financière'],
           label: ['الهدف الأساسي للإدارة المالية في الشركة هو:', 'The primary goal of financial management in a firm is to:', 'L’objectif principal de la gestion financière d’une entreprise est de :'],

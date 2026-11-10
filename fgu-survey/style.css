@@ -108,7 +108,12 @@ button { cursor: pointer; }
 .facts { display: flex; flex-wrap: wrap; gap: 10px; margin: 26px 0 0; padding: 0; list-style: none; }
 .facts li { border: 1px solid rgba(236, 217, 160, .4); border-radius: 999px; padding: 6px 14px; font-size: 14px; color: #eef3f8; }
 .hero .actions { margin-top: 30px; }
-.note { margin-top: 18px; padding: 16px 20px; font-size: 14.5px; color: var(--muted); }
+.note { margin-top: 18px; padding: 22px 24px; }
+.note h2 { font-size: 19px; font-weight: 600; color: var(--navy-deep); }
+.note ul { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 14px; }
+.note li { display: grid; gap: 2px; padding-inline-start: 16px; border-inline-start: 3px solid var(--gold); }
+.note strong { font-family: var(--display); font-weight: 600; font-size: 15.5px; color: var(--navy); }
+.note span { font-size: 15px; color: var(--muted); }
 
 .step-head { padding: 4px 4px 18px; }
 .step-head h2 { font-size: clamp(24px, 4.4vw, 32px); font-weight: 600; color: var(--navy-deep); margin-top: 4px; }
